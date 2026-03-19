@@ -6,6 +6,7 @@ import { LayoutDashboard, Trophy, Shield, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
+import { IPLFantasyLogo } from '@/components/ui/IPLFantasyLogo'
 
 export default function Navbar() {
   const router = useRouter()
@@ -38,15 +39,11 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 glass border-b border-white/5">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/dashboard" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0"
-            style={{ background: 'linear-gradient(135deg, #ff6b00, #ff9500)', boxShadow: '0 0 16px rgba(255,107,0,0.5)' }}>
-            🏏
-          </div>
-          <div className="hidden sm:flex flex-col leading-none gap-0.5">
-            <span className="font-orbitron text-[11px] font-700 tracking-[0.15em] text-[#00d4ff] uppercase">Fantasy</span>
-            <span className="font-orbitron text-sm font-900 tracking-[0.08em] text-white uppercase">IPL 2026</span>
-          </div>
+        <Link href="/dashboard" className="hidden sm:block">
+          <IPLFantasyLogo iconSize={36} />
+        </Link>
+        <Link href="/dashboard" className="sm:hidden">
+          <IPLFantasyLogo iconSize={30} />
         </Link>
 
         {/* Nav links */}
