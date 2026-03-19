@@ -116,27 +116,27 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-/* ── IPL Dark Theme override ── */
+/* ── IPL Dark Theme — Navy/Purple + Orange ── */
 :root {
-  --background: #0a0a0f;
-  --foreground: #f0f0f5;
-  --card: #13131e;
-  --card-foreground: #f0f0f5;
-  --popover: #13131e;
-  --popover-foreground: #f0f0f5;
+  --background: #0d0f1e;
+  --foreground: #f0f0f8;
+  --card: #161829;
+  --card-foreground: #f0f0f8;
+  --popover: #1a1d30;
+  --popover-foreground: #f0f0f8;
   --primary: #ff6b00;
   --primary-foreground: #ffffff;
-  --secondary: #00d4aa;
-  --secondary-foreground: #0a0a0f;
-  --muted: #1e1e2e;
-  --muted-foreground: #888899;
-  --accent: #1e1e2e;
-  --accent-foreground: #f0f0f5;
-  --destructive: #ff3b3b;
-  --border: #2a2a3e;
-  --input: #1e1e2e;
+  --secondary: #22c55e;
+  --secondary-foreground: #ffffff;
+  --muted: #1e2140;
+  --muted-foreground: #8891b0;
+  --accent: #1e2140;
+  --accent-foreground: #f0f0f8;
+  --destructive: #ef4444;
+  --border: #1e2140;
+  --input: #1a1d30;
   --ring: #ff6b00;
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 }
 
 @layer base {
@@ -147,28 +147,33 @@
     @apply bg-background text-foreground;
     font-family: Inter, system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
+    background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99,60,180,0.18) 0%, transparent 70%);
+    background-attachment: fixed;
   }
   html {
     @apply font-sans;
   }
 }
 
-/* Neon glow helpers */
-.glow-orange { box-shadow: 0 0 20px rgba(255,107,0,0.35); }
-.glow-teal   { box-shadow: 0 0 20px rgba(0,212,170,0.35); }
-
-/* Auction timer urgent pulse */
-@keyframes timer-pulse {
-  0%,100% { opacity: 1; }
-  50%      { opacity: 0.55; }
-}
-.timer-urgent {
-  animation: timer-pulse 0.8s ease-in-out infinite;
-  color: #ff3b3b;
-}
+/* Glow helpers */
+.glow-orange { box-shadow: 0 0 24px rgba(255,107,0,0.4); }
+.glow-green  { box-shadow: 0 0 24px rgba(34,197,94,0.4); }
+.glow-purple { box-shadow: 0 0 24px rgba(99,60,180,0.4); }
 
 /* Custom scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #13131e; }
-::-webkit-scrollbar-thumb { background: #2a2a3e; border-radius: 3px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0d0f1e; }
+::-webkit-scrollbar-thumb { background: #1e2140; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #ff6b00; }
+
+/* Glass card effect */
+.glass {
+  background: rgba(22, 24, 41, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Player photo gradient overlay */
+.player-card-gradient {
+  background: linear-gradient(to top, #161829 35%, transparent 80%);
+}
