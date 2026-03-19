@@ -116,14 +116,59 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ── IPL Dark Theme override ── */
+:root {
+  --background: #0a0a0f;
+  --foreground: #f0f0f5;
+  --card: #13131e;
+  --card-foreground: #f0f0f5;
+  --popover: #13131e;
+  --popover-foreground: #f0f0f5;
+  --primary: #ff6b00;
+  --primary-foreground: #ffffff;
+  --secondary: #00d4aa;
+  --secondary-foreground: #0a0a0f;
+  --muted: #1e1e2e;
+  --muted-foreground: #888899;
+  --accent: #1e1e2e;
+  --accent-foreground: #f0f0f5;
+  --destructive: #ff3b3b;
+  --border: #2a2a3e;
+  --input: #1e1e2e;
+  --ring: #ff6b00;
+  --radius: 0.75rem;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
   html {
     @apply font-sans;
   }
 }
+
+/* Neon glow helpers */
+.glow-orange { box-shadow: 0 0 20px rgba(255,107,0,0.35); }
+.glow-teal   { box-shadow: 0 0 20px rgba(0,212,170,0.35); }
+
+/* Auction timer urgent pulse */
+@keyframes timer-pulse {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.timer-urgent {
+  animation: timer-pulse 0.8s ease-in-out infinite;
+  color: #ff3b3b;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #13131e; }
+::-webkit-scrollbar-thumb { background: #2a2a3e; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #ff6b00; }
