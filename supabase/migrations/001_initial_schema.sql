@@ -5,11 +5,11 @@
 -- ─────────────────────────────────────────
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists public.handle_new_user();
+drop function if exists public.get_my_league_ids();
+drop table if exists public.weekly_selections cascade;
+drop table if exists public.gameweeks cascade;
 drop table if exists public.player_performances cascade;
 drop table if exists public.ipl_matches cascade;
-drop table if exists public.auction_bids cascade;
-drop table if exists public.auction_sessions cascade;
-drop table if exists public.team_players cascade;
 drop table if exists public.league_members cascade;
 drop table if exists public.leagues cascade;
 drop table if exists public.ipl_players cascade;
@@ -98,7 +98,7 @@ create table public.leagues (
   commissioner_id uuid references public.profiles(id) not null,
   max_teams int default 10 not null,
   budget_per_team int default 10000 not null,  -- in lakhs (₹100 crore = 10000)
-  status text default 'setup' not null check (status in ('setup', 'auction', 'live', 'completed')),
+  status text default 'setup' not null check (status in ('setup', 'live', 'completed')),
   created_at timestamptz default now() not null
 );
 
@@ -133,13 +133,24 @@ create table public.league_members (
 
 alter table public.league_members enable row level security;
 
+-- Security definer function avoids infinite recursion in the RLS policy below.
+-- Without this, the policy would query league_members to check if the user is a
+-- member, which triggers the policy again → infinite recursion.
+create or replace function public.get_my_league_ids()
+returns setof uuid
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select league_id from public.league_members where user_id = auth.uid()
+$$;
+
 create policy "Members viewable by league members"
   on public.league_members for select
   to authenticated
   using (
-    league_id in (
-      select league_id from public.league_members lm where lm.user_id = auth.uid()
-    )
+    league_id in (select public.get_my_league_ids())
   );
 
 create policy "Users can join leagues"
@@ -161,79 +172,6 @@ create policy "Leagues viewable by members"
       select league_id from public.league_members where user_id = auth.uid()
     )
     or commissioner_id = auth.uid()
-  );
-
--- ─────────────────────────────────────────
--- TEAM PLAYERS (auction results)
--- ─────────────────────────────────────────
-create table public.team_players (
-  id uuid primary key default gen_random_uuid(),
-  league_id uuid references public.leagues(id) on delete cascade not null,
-  member_id uuid references public.league_members(id) on delete cascade not null,
-  player_id uuid references public.ipl_players(id) not null,
-  purchase_price int not null,
-  purchased_at timestamptz default now() not null,
-  unique(league_id, player_id)  -- each player owned by one team per league
-);
-
-alter table public.team_players enable row level security;
-
-create policy "Team players viewable by league members"
-  on public.team_players for select
-  to authenticated
-  using (
-    league_id in (
-      select league_id from public.league_members where user_id = auth.uid()
-    )
-  );
-
--- ─────────────────────────────────────────
--- AUCTION SESSIONS
--- ─────────────────────────────────────────
-create table public.auction_sessions (
-  id uuid primary key default gen_random_uuid(),
-  league_id uuid references public.leagues(id) on delete cascade not null unique,
-  current_player_id uuid references public.ipl_players(id),
-  current_highest_bid int,
-  current_highest_bidder_id uuid references public.league_members(id),
-  timer_end timestamptz,
-  status text default 'waiting' not null check (status in ('waiting', 'active', 'sold', 'unsold', 'completed')),
-  updated_at timestamptz default now() not null
-);
-
-alter table public.auction_sessions enable row level security;
-
-create policy "Auction sessions viewable by league members"
-  on public.auction_sessions for select
-  to authenticated
-  using (
-    league_id in (
-      select league_id from public.league_members where user_id = auth.uid()
-    )
-  );
-
--- ─────────────────────────────────────────
--- AUCTION BIDS
--- ─────────────────────────────────────────
-create table public.auction_bids (
-  id uuid primary key default gen_random_uuid(),
-  session_id uuid references public.auction_sessions(id) on delete cascade not null,
-  league_id uuid references public.leagues(id) not null,
-  player_id uuid references public.ipl_players(id) not null,
-  bidder_id uuid references public.league_members(id) not null,
-  amount int not null,
-  created_at timestamptz default now() not null
-);
-
-alter table public.auction_bids enable row level security;
-
-create policy "Bids viewable by league members"
-  on public.auction_bids for select
-  to authenticated
-  using (
-    league_id in (
-      select league_id from public.league_members where user_id = auth.uid()
-    )
   );
 
 -- ─────────────────────────────────────────
@@ -298,7 +236,4 @@ create policy "Performances viewable by authenticated users"
 -- ─────────────────────────────────────────
 -- REALTIME: enable relevant tables
 -- ─────────────────────────────────────────
-alter publication supabase_realtime add table public.auction_sessions;
-alter publication supabase_realtime add table public.auction_bids;
 alter publication supabase_realtime add table public.league_members;
-alter publication supabase_realtime add table public.team_players;

@@ -34,6 +34,7 @@ export type Database = {
           role: 'batsman' | 'bowler' | 'all_rounder' | 'wicket_keeper'
           nationality: string | null
           base_price: number
+          fantasy_price: number
           is_overseas: boolean
           image_url: string | null
           cricinfo_id: string | null
@@ -46,6 +47,7 @@ export type Database = {
           role: 'batsman' | 'bowler' | 'all_rounder' | 'wicket_keeper'
           nationality?: string | null
           base_price?: number
+          fantasy_price?: number
           is_overseas?: boolean
           image_url?: string | null
           cricinfo_id?: string | null
@@ -56,6 +58,7 @@ export type Database = {
           role?: 'batsman' | 'bowler' | 'all_rounder' | 'wicket_keeper'
           nationality?: string | null
           base_price?: number
+          fantasy_price?: number
           is_overseas?: boolean
           image_url?: string | null
           cricinfo_id?: string | null
@@ -69,7 +72,7 @@ export type Database = {
           commissioner_id: string
           max_teams: number
           budget_per_team: number
-          status: 'setup' | 'auction' | 'live' | 'completed'
+          status: 'setup' | 'live' | 'completed'
           created_at: string
         }
         Insert: {
@@ -79,7 +82,7 @@ export type Database = {
           commissioner_id: string
           max_teams?: number
           budget_per_team?: number
-          status?: 'setup' | 'auction' | 'live' | 'completed'
+          status?: 'setup' | 'live' | 'completed'
         }
         Update: {
           name?: string
@@ -87,7 +90,7 @@ export type Database = {
           commissioner_id?: string
           max_teams?: number
           budget_per_team?: number
-          status?: 'setup' | 'auction' | 'live' | 'completed'
+          status?: 'setup' | 'live' | 'completed'
         }
       }
       league_members: {
@@ -114,74 +117,58 @@ export type Database = {
           total_points?: number
         }
       }
-      team_players: {
+      gameweeks: {
         Row: {
           id: string
-          league_id: string
-          member_id: string
-          player_id: string
-          purchase_price: number
-          purchased_at: string
-        }
-        Insert: {
-          id?: string
-          league_id: string
-          member_id: string
-          player_id: string
-          purchase_price: number
-        }
-        Update: {
-          purchase_price?: number
-        }
-      }
-      auction_sessions: {
-        Row: {
-          id: string
-          league_id: string
-          current_player_id: string | null
-          current_highest_bid: number | null
-          current_highest_bidder_id: string | null
-          timer_end: string | null
-          status: 'waiting' | 'active' | 'sold' | 'unsold' | 'completed'
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          league_id: string
-          current_player_id?: string | null
-          current_highest_bid?: number | null
-          current_highest_bidder_id?: string | null
-          timer_end?: string | null
-          status?: 'waiting' | 'active' | 'sold' | 'unsold' | 'completed'
-        }
-        Update: {
-          current_player_id?: string | null
-          current_highest_bid?: number | null
-          current_highest_bidder_id?: string | null
-          timer_end?: string | null
-          status?: 'waiting' | 'active' | 'sold' | 'unsold' | 'completed'
-          updated_at?: string
-        }
-      }
-      auction_bids: {
-        Row: {
-          id: string
-          session_id: string
-          league_id: string
-          player_id: string
-          bidder_id: string
-          amount: number
+          week_number: number
+          name: string
+          start_date: string
+          end_date: string
+          deadline: string
+          status: 'upcoming' | 'active' | 'completed'
           created_at: string
         }
         Insert: {
           id?: string
-          session_id: string
-          league_id: string
-          player_id: string
-          bidder_id: string
-          amount: number
+          week_number: number
+          name: string
+          start_date: string
+          end_date: string
+          deadline: string
+          status?: 'upcoming' | 'active' | 'completed'
         }
-        Update: never
+        Update: {
+          name?: string
+          start_date?: string
+          end_date?: string
+          deadline?: string
+          status?: 'upcoming' | 'active' | 'completed'
+        }
+      }
+      weekly_selections: {
+        Row: {
+          id: string
+          league_id: string
+          member_id: string
+          gameweek_id: string
+          player_id: string
+          is_captain: boolean
+          is_vice_captain: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          league_id: string
+          member_id: string
+          gameweek_id: string
+          player_id: string
+          is_captain?: boolean
+          is_vice_captain?: boolean
+        }
+        Update: {
+          is_captain?: boolean
+          is_vice_captain?: boolean
+        }
       }
       ipl_matches: {
         Row: {
@@ -191,6 +178,7 @@ export type Database = {
           team2: string
           venue: string | null
           scheduled_at: string | null
+          gameweek_id: string | null
           status: 'upcoming' | 'live' | 'completed'
           result: string | null
           created_at: string
@@ -202,10 +190,12 @@ export type Database = {
           team2: string
           venue?: string | null
           scheduled_at?: string | null
+          gameweek_id?: string | null
           status?: 'upcoming' | 'live' | 'completed'
           result?: string | null
         }
         Update: {
+          gameweek_id?: string | null
           status?: 'upcoming' | 'live' | 'completed'
           result?: string | null
         }
@@ -285,9 +275,8 @@ export type Tables<T extends keyof Database['public']['Tables']> =
 export type IplPlayer = Tables<'ipl_players'>
 export type League = Tables<'leagues'>
 export type LeagueMember = Tables<'league_members'>
-export type TeamPlayer = Tables<'team_players'>
-export type AuctionSession = Tables<'auction_sessions'>
-export type AuctionBid = Tables<'auction_bids'>
+export type Gameweek = Tables<'gameweeks'>
+export type WeeklySelection = Tables<'weekly_selections'>
 export type IplMatch = Tables<'ipl_matches'>
 export type PlayerPerformance = Tables<'player_performances'>
 export type Profile = Tables<'profiles'>
