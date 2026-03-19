@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { ArrowLeft, Zap, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import PitchView from '@/components/team/PitchView'
+import PlayerCardsView from '@/components/team/PlayerCardsView'
 
 type Player = {
   id: string
@@ -145,7 +145,7 @@ export default async function TeamPage({
   const mem = myMembership as { id: string; team_name: string | null; total_points: number }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="max-w-3xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -156,8 +156,10 @@ export default async function TeamPage({
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-white">{mem.team_name ?? 'My Team'}</h1>
-            <p className="text-sm text-muted-foreground">{l.name}</p>
+            <h1 className="font-orbitron text-lg font-900 tracking-wide text-white uppercase">
+              {mem.team_name ?? 'My Team'}
+            </h1>
+            <p className="font-rajdhani text-xs tracking-widest uppercase text-[#00d4ff]/60 mt-0.5">{l.name}</p>
           </div>
         </div>
 
@@ -165,16 +167,18 @@ export default async function TeamPage({
         {canSelectNextWeek && (
           <Link
             href={`/leagues/${id}/select?gw=${nextGw!.week_number}`}
-            className={cn(buttonVariants({ size: 'sm' }), 'bg-[#ff6b00] hover:bg-[#e55c00] text-white gap-1.5 shrink-0')}
+            className={cn(buttonVariants({ size: 'sm' }), 'bg-[#ff6b00] hover:bg-[#e55c00] text-white gap-1.5 shrink-0 font-rajdhani tracking-wider uppercase text-xs')}
+            style={{ boxShadow: '0 0 16px rgba(255,107,0,0.4)' }}
           >
             <Zap className="w-3.5 h-3.5" />
-            Select for {nextGw!.name}
+            Select {nextGw!.name}
           </Link>
         )}
         {canSelectCurrentWeek && !canSelectNextWeek && (
           <Link
             href={`/leagues/${id}/select`}
-            className={cn(buttonVariants({ size: 'sm' }), 'bg-[#ff6b00] hover:bg-[#e55c00] text-white gap-1.5 shrink-0')}
+            className={cn(buttonVariants({ size: 'sm' }), 'bg-[#ff6b00] hover:bg-[#e55c00] text-white gap-1.5 shrink-0 font-rajdhani tracking-wider uppercase text-xs')}
+            style={{ boxShadow: '0 0 16px rgba(255,107,0,0.4)' }}
           >
             <Zap className="w-3.5 h-3.5" />
             Edit {currentGw!.name}
@@ -193,10 +197,10 @@ export default async function TeamPage({
                 key={gw.id}
                 href={`/leagues/${id}/team?gw=${gw.week_number}`}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border whitespace-nowrap transition-all shrink-0',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-rajdhani text-xs font-600 tracking-widest uppercase border whitespace-nowrap transition-all shrink-0',
                   isActive
-                    ? 'bg-[#ff6b00] border-[#ff6b00] text-white'
-                    : 'bg-card border-border text-muted-foreground hover:border-[#ff6b00]/40 hover:text-white'
+                    ? 'border-[#00d4ff]/60 text-[#00d4ff] bg-[#00d4ff]/8'
+                    : 'bg-card border-border text-muted-foreground hover:border-[#00d4ff]/30 hover:text-white'
                 )}
               >
                 {isPast && <Lock className="w-3 h-3" />}
@@ -209,25 +213,25 @@ export default async function TeamPage({
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-card border border-border rounded-xl p-3 text-center">
-          <p className="text-xs text-muted-foreground">Players</p>
-          <p className="text-2xl font-black text-[#ff6b00]">{rows.length}</p>
+        <div className="card-futuristic rounded-xl p-3 text-center">
+          <p className="font-rajdhani text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Players</p>
+          <p className="font-orbitron text-2xl font-900 text-[#ff6b00] mt-1">{rows.length}<span className="text-sm text-muted-foreground">/11</span></p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-3 text-center">
-          <p className="text-xs text-muted-foreground">Team cost</p>
-          <p className="text-2xl font-black text-white">₹{totalCost}L</p>
+        <div className="card-futuristic rounded-xl p-3 text-center">
+          <p className="font-rajdhani text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Team Cost</p>
+          <p className="font-orbitron text-2xl font-900 text-white mt-1">₹{totalCost}<span className="text-sm text-muted-foreground">L</span></p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-3 text-center">
-          <p className="text-xs text-muted-foreground">Total pts</p>
-          <p className="text-2xl font-black text-[#22c55e]">{Number(mem.total_points).toFixed(1)}</p>
+        <div className="card-futuristic rounded-xl p-3 text-center">
+          <p className="font-rajdhani text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Total Pts</p>
+          <p className="font-orbitron text-2xl font-900 mt-1" style={{ color: '#00d4ff' }}>{Number(mem.total_points).toFixed(1)}</p>
         </div>
       </div>
 
-      {/* Pitch view or empty state */}
+      {/* Player cards or empty state */}
       {rows.length === 0 ? (
-        <div className="bg-card border border-dashed border-border rounded-2xl py-16 text-center">
+        <div className="card-futuristic rounded-2xl py-16 text-center">
           <p className="text-4xl mb-3">🏏</p>
-          <p className="text-muted-foreground text-sm mb-4">
+          <p className="font-rajdhani text-sm tracking-wider text-muted-foreground mb-4">
             No team selected for {displayGw?.name ?? 'this gameweek'}
           </p>
           {currentGw && new Date(currentGw.deadline) > now && (
@@ -240,18 +244,18 @@ export default async function TeamPage({
           )}
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-2xl p-4">
-          {/* Gameweek + deadline info */}
-          <div className="flex items-center justify-between mb-3 text-xs text-muted-foreground">
-            <span>{displayGw?.name}</span>
-            <span className="flex items-center gap-1">
+        <div className="card-futuristic rounded-2xl p-5">
+          {/* Gameweek + deadline */}
+          <div className="flex items-center justify-between mb-5 text-xs">
+            <span className="font-rajdhani tracking-widest uppercase text-[#00d4ff]/60">{displayGw?.name}</span>
+            <span className="font-rajdhani tracking-wider text-muted-foreground flex items-center gap-1">
               {displayGw && new Date(displayGw.deadline) < now
                 ? <><Lock className="w-3 h-3" /> Locked</>
-                : `Deadline: ${displayGw ? new Date(displayGw.deadline).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}`
+                : `Deadline: ${displayGw ? new Date(displayGw.deadline).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST' : ''}`
               }
             </span>
           </div>
-          <PitchView players={mergedPlayers} selections={selections} />
+          <PlayerCardsView players={mergedPlayers} selections={selections} />
         </div>
       )}
     </div>

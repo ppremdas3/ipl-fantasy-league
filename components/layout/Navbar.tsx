@@ -38,13 +38,14 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 glass border-b border-white/5">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/dashboard" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#ff6b00] flex items-center justify-center text-white font-black text-sm">
+        <Link href="/dashboard" className="flex items-center gap-2.5 group">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0"
+            style={{ background: 'linear-gradient(135deg, #ff6b00, #ff9500)', boxShadow: '0 0 16px rgba(255,107,0,0.5)' }}>
             🏏
           </div>
-          <div>
-            <span className="font-bold text-white hidden sm:block">IPL</span>
-            <span className="font-bold text-[#ff6b00] hidden sm:block">Fantasy</span>
+          <div className="hidden sm:flex flex-col leading-none gap-0.5">
+            <span className="font-orbitron text-[11px] font-700 tracking-[0.15em] text-[#00d4ff] uppercase">Fantasy</span>
+            <span className="font-orbitron text-sm font-900 tracking-[0.08em] text-white uppercase">IPL 2026</span>
           </div>
         </Link>
 
@@ -57,16 +58,16 @@ export default function Navbar() {
                 key={href}
                 href={href}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-rajdhani font-600 tracking-widest uppercase transition-all',
                   active
-                    ? 'text-white bg-white/8'
-                    : 'text-[#8891b0] hover:text-white hover:bg-white/5'
+                    ? 'text-[#00d4ff] bg-[#00d4ff]/8'
+                    : 'text-[#5a7a9a] hover:text-white hover:bg-white/5'
                 )}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-3.5 h-3.5" />
                 <span className="hidden sm:block">{label}</span>
                 {active && (
-                  <span className="hidden sm:block w-1 h-1 rounded-full bg-[#ff6b00] ml-0.5" />
+                  <span className="hidden sm:block w-1 h-1 rounded-full bg-[#00d4ff] ml-0.5" />
                 )}
               </Link>
             )
