@@ -29,35 +29,45 @@ interface PerformanceRow {
   is_playing_xi: boolean
 }
 
+interface Gameweek {
+  id: string
+  week_number: number
+  name: string
+  start_date: string
+  end_date: string
+  deadline: string
+  status: string
+}
+
 export default function AdminPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createTypedClient() as any
   const [myLeagues, setMyLeagues] = useState<League[]>([])
   const [selectedLeagueId, setSelectedLeagueId] = useState('')
   const [matches, setMatches] = useState<IplMatch[]>([])
+  const [gameweeks, setGameweeks] = useState<Gameweek[]>([])
   const [selectedMatchId, setSelectedMatchId] = useState('')
   const [players, setPlayers] = useState<IplPlayer[]>([])
   const [performances, setPerformances] = useState<PerformanceRow[]>([])
   const [saving, setSaving] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
-
+  const [generatingWeeks, setGeneratingWeeks] = useState(false)
+  const [addingMatch, setAddingMatch] = useState(false)
+  const [seedingSchedule, setSeedingSchedule] = useState(false)
   // New match form
   const [newMatch, setNewMatch] = useState({
     match_number: '',
     team1: '',
     team2: '',
-    venue: '',
     scheduled_at: '',
+    venue: '',
   })
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase
-        .from('leagues')
-        .select('*')
-        .eq('commissioner_id', user.id)
+      const { data } = await supabase.from('leagues').select('*').eq('commissioner_id', user.id)
       setMyLeagues(data ?? [])
     }
     load()
@@ -67,7 +77,54 @@ export default function AdminPage() {
     if (!selectedLeagueId) return
     supabase.from('ipl_matches').select('*').order('match_number').then(({ data }: { data: IplMatch[] | null }) => setMatches(data ?? []))
     supabase.from('ipl_players').select('*').order('name').then(({ data }: { data: IplPlayer[] | null }) => setPlayers(data ?? []))
+    supabase.from('gameweeks').select('*').order('week_number').then(({ data }: { data: Gameweek[] | null }) => setGameweeks(data ?? []))
   }, [supabase, selectedLeagueId])
+
+  async function seedSchedule() {
+    setSeedingSchedule(true)
+    const res = await fetch('/api/schedule/seed', { method: 'POST' })
+    const data = await res.json()
+    if (!res.ok) toast.error(data.error ?? 'Failed to seed schedule')
+    else {
+      toast.success(data.message)
+      supabase.from('ipl_matches').select('*').order('match_number').then(({ data: d }: { data: IplMatch[] | null }) => setMatches(d ?? []))
+      supabase.from('gameweeks').select('*').order('week_number').then(({ data: d }: { data: Gameweek[] | null }) => setGameweeks(d ?? []))
+    }
+    setSeedingSchedule(false)
+  }
+
+  async function addMatch() {
+    if (!newMatch.match_number || !newMatch.team1 || !newMatch.team2 || !newMatch.scheduled_at) {
+      toast.error('Fill in match number, both teams, and date/time')
+      return
+    }
+    setAddingMatch(true)
+    const { error } = await supabase.from('ipl_matches').upsert({
+      match_number: parseInt(newMatch.match_number),
+      team1: newMatch.team1,
+      team2: newMatch.team2,
+      scheduled_at: new Date(newMatch.scheduled_at).toISOString(),
+      venue: newMatch.venue || null,
+      status: 'upcoming',
+    }, { onConflict: 'match_number' })
+    if (error) { toast.error(error.message); setAddingMatch(false); return }
+    toast.success(`Match #${newMatch.match_number} added`)
+    setNewMatch({ match_number: '', team1: '', team2: '', scheduled_at: '', venue: '' })
+    supabase.from('ipl_matches').select('*').order('match_number').then(({ data: d }: { data: IplMatch[] | null }) => setMatches(d ?? []))
+    setAddingMatch(false)
+  }
+
+  async function generateGameweeks() {
+    setGeneratingWeeks(true)
+    const res = await fetch('/api/schedule/generate-gameweeks', { method: 'POST' })
+    const data = await res.json()
+    if (!res.ok) toast.error(data.error ?? 'Failed to generate gameweeks')
+    else {
+      toast.success(data.message)
+      supabase.from('gameweeks').select('*').order('week_number').then(({ data: d }: { data: Gameweek[] | null }) => setGameweeks(d ?? []))
+    }
+    setGeneratingWeeks(false)
+  }
 
   function initPerformances(playerList: IplPlayer[]) {
     setPerformances(playerList.map(p => ({
@@ -131,32 +188,13 @@ export default function AdminPage() {
     setRecalculating(false)
   }
 
-  async function addMatch(e: React.FormEvent) {
-    e.preventDefault()
-    const { error } = await supabase.from('ipl_matches').insert({
-      match_number: parseInt(newMatch.match_number),
-      team1: newMatch.team1,
-      team2: newMatch.team2,
-      venue: newMatch.venue,
-      scheduled_at: newMatch.scheduled_at || null,
-      status: 'upcoming',
-    })
-    if (error) toast.error(error.message)
-    else {
-      toast.success('Match added!')
-      setNewMatch({ match_number: '', team1: '', team2: '', venue: '', scheduled_at: '' })
-      const { data } = await supabase.from('ipl_matches').select('*').order('match_number')
-      setMatches(data ?? [])
-    }
-  }
-
   const playingCount = performances.filter(p => p.is_playing_xi).length
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold">Admin Panel</h1>
-        <p className="text-muted-foreground text-sm mt-1">Commissioner tools — manage matches, scores, and points</p>
+        <p className="text-muted-foreground text-sm mt-1">Commissioner tools — schedule, scores, and points</p>
       </div>
 
       {/* League selector */}
@@ -176,38 +214,109 @@ export default function AdminPage() {
         </CardContent>
       </Card>
 
-      {/* Add match */}
+      {/* Manual Match Entry */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-base">Add IPL Match</CardTitle>
-          <CardDescription>Add matches to the schedule</CardDescription>
+          <CardTitle className="text-base">Add IPL 2026 Matches</CardTitle>
+          <CardDescription>Manually add each match. Once all matches are entered, generate gameweeks.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={addMatch} className="grid grid-cols-2 gap-3">
+        <CardContent className="space-y-4">
+          {/* One-click seed */}
+          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border">
             <div>
-              <Label>Match #</Label>
-              <Input value={newMatch.match_number} onChange={e => setNewMatch(p => ({ ...p, match_number: e.target.value }))} placeholder="1" className="bg-input border-border mt-1" required />
+              <p className="text-sm font-medium">IPL 2026 — Matches 1–20</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Mar 28 – Apr 12 · Pre-loaded from official schedule</p>
+            </div>
+            <Button onClick={seedSchedule} disabled={seedingSchedule}
+              className="bg-[#ff6b00] hover:bg-[#e55c00] text-white shrink-0">
+              {seedingSchedule ? 'Loading…' : '⬇ Load Schedule'}
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex-1 h-px bg-border" />
+            <span>or add matches manually below</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+          {/* Entry form */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div>
+              <Label className="text-xs">Match #</Label>
+              <Input type="number" placeholder="1" value={newMatch.match_number}
+                onChange={e => setNewMatch(p => ({ ...p, match_number: e.target.value }))}
+                className="bg-input border-border mt-1 h-8 text-sm" />
             </div>
             <div>
-              <Label>Date & Time</Label>
-              <Input type="datetime-local" value={newMatch.scheduled_at} onChange={e => setNewMatch(p => ({ ...p, scheduled_at: e.target.value }))} className="bg-input border-border mt-1" />
+              <Label className="text-xs">Team 1</Label>
+              <select value={newMatch.team1} onChange={e => setNewMatch(p => ({ ...p, team1: e.target.value }))}
+                className="w-full mt-1 h-8 rounded-md border border-border bg-input text-sm px-2 text-foreground">
+                <option value="">Select</option>
+                {['MI','CSK','RCB','KKR','RR','DC','PBKS','SRH','LSG','GT'].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
             <div>
-              <Label>Team 1</Label>
-              <Input value={newMatch.team1} onChange={e => setNewMatch(p => ({ ...p, team1: e.target.value }))} placeholder="MI" className="bg-input border-border mt-1" required />
-            </div>
-            <div>
-              <Label>Team 2</Label>
-              <Input value={newMatch.team2} onChange={e => setNewMatch(p => ({ ...p, team2: e.target.value }))} placeholder="CSK" className="bg-input border-border mt-1" required />
+              <Label className="text-xs">Team 2</Label>
+              <select value={newMatch.team2} onChange={e => setNewMatch(p => ({ ...p, team2: e.target.value }))}
+                className="w-full mt-1 h-8 rounded-md border border-border bg-input text-sm px-2 text-foreground">
+                <option value="">Select</option>
+                {['MI','CSK','RCB','KKR','RR','DC','PBKS','SRH','LSG','GT'].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
             <div className="col-span-2">
-              <Label>Venue</Label>
-              <Input value={newMatch.venue} onChange={e => setNewMatch(p => ({ ...p, venue: e.target.value }))} placeholder="Wankhede Stadium" className="bg-input border-border mt-1" />
+              <Label className="text-xs">Date &amp; Time</Label>
+              <Input type="datetime-local" value={newMatch.scheduled_at}
+                onChange={e => setNewMatch(p => ({ ...p, scheduled_at: e.target.value }))}
+                className="bg-input border-border mt-1 h-8 text-sm" />
             </div>
-            <div className="col-span-2">
-              <Button type="submit" className="bg-[#ff6b00] hover:bg-[#e55c00] text-white">Add Match</Button>
+            <div>
+              <Label className="text-xs">Venue (optional)</Label>
+              <Input placeholder="Wankhede Stadium" value={newMatch.venue}
+                onChange={e => setNewMatch(p => ({ ...p, venue: e.target.value }))}
+                className="bg-input border-border mt-1 h-8 text-sm" />
             </div>
-          </form>
+          </div>
+          <Button onClick={addMatch} disabled={addingMatch} className="bg-[#ff6b00] hover:bg-[#e55c00] text-white">
+            {addingMatch ? 'Adding…' : '+ Add Match'}
+          </Button>
+
+          {/* Matches list */}
+          {matches.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{matches.length} matches added</p>
+                <Button onClick={generateGameweeks} disabled={generatingWeeks} size="sm"
+                  className="bg-[#22c55e] hover:bg-[#16a34a] text-white text-xs h-7">
+                  {generatingWeeks ? 'Generating…' : '⚡ Generate Gameweeks'}
+                </Button>
+              </div>
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {matches.map(m => (
+                  <div key={m.id} className="flex items-center justify-between text-xs bg-muted/30 rounded px-3 py-1.5">
+                    <span className="text-muted-foreground w-12">M#{m.match_number}</span>
+                    <span className="font-medium flex-1">{m.team1} vs {m.team2}</span>
+                    <span className="text-muted-foreground">
+                      {m.scheduled_at ? new Date(m.scheduled_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Gameweeks */}
+          {gameweeks.length > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">{gameweeks.length} gameweeks generated</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {gameweeks.map(gw => (
+                  <div key={gw.id} className="text-xs bg-muted/30 rounded p-2">
+                    <p className="font-semibold">{gw.name}</p>
+                    <p className="text-muted-foreground">{gw.start_date} – {gw.end_date}</p>
+                    <p className={`mt-0.5 ${gw.status === 'active' ? 'text-[#22c55e]' : 'text-muted-foreground'}`}>{gw.status}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -299,11 +408,7 @@ export default function AdminPage() {
               <Separator className="bg-border" />
 
               <div className="flex gap-3">
-                <Button
-                  onClick={savePerformances}
-                  disabled={saving}
-                  className="bg-[#ff6b00] hover:bg-[#e55c00] text-white"
-                >
+                <Button onClick={savePerformances} disabled={saving} className="bg-[#ff6b00] hover:bg-[#e55c00] text-white">
                   {saving ? 'Saving…' : 'Save Performances'}
                 </Button>
                 <Button
