@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Search, X, ChevronDown } from 'lucide-react'
@@ -67,6 +68,7 @@ type Props = {
 }
 
 export default function PlayerPicker({ players, leagueId, gameweekId, gameweekName, deadline, existingSelection }: Props) {
+  const router = useRouter()
   const [selected, setSelected] = useState<SelectedPlayer[]>(existingSelection)
   const [search, setSearch] = useState('')
   const [filterTeam, setFilterTeam] = useState('')
@@ -168,8 +170,12 @@ export default function PlayerPicker({ players, leagueId, gameweekId, gameweekNa
     })
     const data = await res.json()
     setSaving(false)
-    if (res.ok) toast.success(`Team saved for ${gameweekName}!`)
-    else toast.error(data.error ?? 'Failed to save team')
+    if (res.ok) {
+      toast.success(`Team saved for ${gameweekName}!`)
+      router.push(`/leagues/${leagueId}/team`)
+    } else {
+      toast.error(data.error ?? 'Failed to save team')
+    }
   }
 
   const canSave = selected.length === SQUAD_SIZE && !!captain && !!vc && !isPastDeadline
