@@ -9,23 +9,12 @@ export async function POST(request: NextRequest) {
   const anonSupabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cs) => cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)),
-      },
-    }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   )
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cs) => cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)),
-      },
-    }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   )
 
   const { data: { user } } = await anonSupabase.auth.getUser()
@@ -36,7 +25,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'match_id and league_id required' }, { status: 400 })
   }
 
-  // Verify commissioner of this league
+  // Verify commissioner
   const { data: league } = await supabase
     .from('leagues')
     .select('commissioner_id')
@@ -47,70 +36,79 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'Only the commissioner can recalculate points' }, { status: 403 })
   }
 
-  // Get all performances for this match
+  // Get performances and match's gameweek
+  const { data: match } = await supabase
+    .from('ipl_matches')
+    .select('gameweek_id')
+    .eq('id', match_id)
+    .single()
+
   const { data: perfs, error: perfErr } = await supabase
     .from('player_performances')
     .select('*')
     .eq('match_id', match_id)
 
-  if (perfErr || !perfs) {
-    return Response.json({ error: 'Failed to fetch performances' }, { status: 500 })
-  }
+  if (perfErr || !perfs) return Response.json({ error: 'Failed to fetch performances' }, { status: 500 })
 
-  // Calculate and update fantasy_points for each performance
-  const updates = perfs.map(perf => {
-    const pts = calculatePoints(perf)
-    return { id: perf.id, fantasy_points: pts }
-  })
-
-  for (const upd of updates) {
-    await supabase
-      .from('player_performances')
-      .update({ fantasy_points: upd.fantasy_points })
-      .eq('id', upd.id)
-  }
-
-  // Now recalculate total_points for each team member in this league
-  // Get all team players in this league
-  const { data: teamPlayers } = await supabase
-    .from('team_players')
-    .select('member_id, player_id')
-    .eq('league_id', league_id)
-
-  if (!teamPlayers) return Response.json({ error: 'No team data' }, { status: 500 })
-
-  // Build a map: player_id -> fantasy_points from this match
+  // Calculate and update fantasy_points per performance
   const playerPoints = new Map<string, number>()
   for (const perf of perfs) {
-    const upd = updates.find(u => u.id === perf.id)
-    if (upd) playerPoints.set(perf.player_id, upd.fantasy_points)
+    const pts = calculatePoints(perf)
+    await supabase.from('player_performances').update({ fantasy_points: pts }).eq('id', perf.id)
+    playerPoints.set(perf.player_id, pts)
   }
 
-  // Group by member
-  const memberPointsMap = new Map<string, number>()
-  for (const tp of teamPlayers) {
-    const pts = playerPoints.get(tp.player_id) ?? 0
-    memberPointsMap.set(tp.member_id, (memberPointsMap.get(tp.member_id) ?? 0) + pts)
-  }
+  // Get all league members
+  const { data: members } = await supabase
+    .from('league_members')
+    .select('id')
+    .eq('league_id', league_id)
 
-  // Update total_points for each member (add this match's points)
-  for (const [memberId, pts] of memberPointsMap) {
-    const { data: member } = await supabase
+  if (!members) return Response.json({ error: 'No members found' }, { status: 500 })
+
+  let membersUpdated = 0
+
+  for (const member of members) {
+    // Get this member's weekly selection for the match's gameweek
+    const gameweekId = match?.gameweek_id ?? null
+    if (!gameweekId) continue
+
+    const { data: selections } = await supabase
+      .from('weekly_selections')
+      .select('player_id, is_captain, is_vice_captain')
+      .eq('league_id', league_id)
+      .eq('member_id', member.id)
+      .eq('gameweek_id', gameweekId)
+
+    if (!selections || selections.length === 0) continue
+
+    // Sum points with captain (2x) and VC (1.5x) multipliers
+    let matchPoints = 0
+    for (const sel of selections) {
+      const rawPts = playerPoints.get(sel.player_id) ?? 0
+      const multiplier = sel.is_captain ? 2 : sel.is_vice_captain ? 1.5 : 1
+      matchPoints += rawPts * multiplier
+    }
+
+    // Add to member's total_points
+    const { data: memberRow } = await supabase
       .from('league_members')
       .select('total_points')
-      .eq('id', memberId)
+      .eq('id', member.id)
       .single()
-    if (member) {
+
+    if (memberRow) {
       await supabase
         .from('league_members')
-        .update({ total_points: Number(member.total_points) + pts })
-        .eq('id', memberId)
+        .update({ total_points: Number(memberRow.total_points) + matchPoints })
+        .eq('id', member.id)
+      membersUpdated++
     }
   }
 
   return Response.json({
     success: true,
-    performances_updated: updates.length,
-    members_updated: memberPointsMap.size,
+    performances_updated: perfs.length,
+    members_updated: membersUpdated,
   })
 }
