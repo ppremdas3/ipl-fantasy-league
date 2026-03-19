@@ -134,12 +134,12 @@ function MatchTile({ match: m }: { match: Match }) {
       <div className="relative px-6 py-4">
         {/* Top row: match number + status */}
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-muted-foreground font-medium">Match {m.match_number}</span>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase"
+          <span className="text-base font-black text-white">Match {m.match_number}</span>
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold tracking-wider uppercase"
             style={{ background: statusConfig.bg, color: statusConfig.textColor }}
           >
             {statusConfig.dot && (
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: statusConfig.dotColor }} />
+              <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: statusConfig.dotColor }} />
             )}
             {statusConfig.label}
           </div>
@@ -149,13 +149,8 @@ function MatchTile({ match: m }: { match: Match }) {
         <div className="flex items-center justify-between gap-3">
           {/* Team 1 */}
           <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
-            <TeamLogo teamName={m.team1} size={52} />
-            <div className="text-center">
-              <p className="font-black text-sm text-white">{t1?.abbr ?? m.team1}</p>
-              <p className="text-[10px] text-muted-foreground leading-tight hidden sm:block truncate max-w-[80px]">
-                {m.team1}
-              </p>
-            </div>
+            <TeamLogo teamName={m.team1} size={68} />
+            <p className="font-black text-sm text-white text-center">{t1?.abbr ?? m.team1}</p>
           </div>
 
           {/* Center: date + vs */}
@@ -164,10 +159,10 @@ function MatchTile({ match: m }: { match: Match }) {
             {matchDate && (
               <>
                 <p className="text-sm font-bold text-white">
-                  {matchDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  {matchDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {matchDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  {matchDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST
                 </p>
               </>
             )}
@@ -180,13 +175,8 @@ function MatchTile({ match: m }: { match: Match }) {
 
           {/* Team 2 */}
           <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
-            <TeamLogo teamName={m.team2} size={52} />
-            <div className="text-center">
-              <p className="font-black text-sm text-white">{t2?.abbr ?? m.team2}</p>
-              <p className="text-[10px] text-muted-foreground leading-tight hidden sm:block truncate max-w-[80px]">
-                {m.team2}
-              </p>
-            </div>
+            <TeamLogo teamName={m.team2} size={68} />
+            <p className="font-black text-sm text-white text-center">{t2?.abbr ?? m.team2}</p>
           </div>
         </div>
 
