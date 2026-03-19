@@ -177,3 +177,24 @@
 .player-card-gradient {
   background: linear-gradient(to top, #161829 35%, transparent 80%);
 }
+
+/* 3D card — use on any card/tile for depth */
+.card-3d {
+  transform: perspective(600px) rotateX(1.5deg);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05) inset;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-3d:hover {
+  transform: perspective(600px) rotateX(0deg) translateY(-3px);
+  box-shadow: 0 8px 12px rgba(0,0,0,0.4), 0 20px 40px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.07) inset;
+}
+
+/* Elevated stat card — subtle lift without rotation */
+.card-elevated {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.04) inset;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-elevated:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4), 0 16px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.06) inset;
+  transform: translateY(-2px);
+}

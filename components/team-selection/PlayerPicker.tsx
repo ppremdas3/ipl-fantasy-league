@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils'
 import { Search, X, ChevronDown } from 'lucide-react'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerStatsModal from '@/components/team-selection/PlayerStatsModal'
+import TeamLogo from '@/components/ui/TeamLogo'
+import { getTeamInfo } from '@/lib/team-colors'
 
 const BUDGET = 10000
 const SQUAD_SIZE = 11
@@ -27,18 +29,6 @@ const ROLE_LIMITS = {
 
 const IPL_TEAMS = ['MI', 'CSK', 'RCB', 'KKR', 'RR', 'DC', 'PBKS', 'SRH', 'LSG', 'GT']
 
-const TEAM_BADGE_COLORS: Record<string, string> = {
-  MI:   'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  CSK:  'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  RCB:  'bg-red-500/20 text-red-300 border-red-500/30',
-  KKR:  'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  RR:   'bg-pink-500/20 text-pink-300 border-pink-500/30',
-  DC:   'bg-sky-500/20 text-sky-300 border-sky-500/30',
-  PBKS: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
-  SRH:  'bg-orange-500/20 text-orange-300 border-orange-500/30',
-  LSG:  'bg-lime-500/20 text-lime-300 border-lime-500/30',
-  GT:   'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-}
 
 const ROLE_ORDER = ['wicket_keeper', 'batsman', 'all_rounder', 'bowler']
 
@@ -195,20 +185,24 @@ export default function PlayerPicker({ players, leagueId, gameweekId, gameweekNa
         >
           All Teams
         </button>
-        {IPL_TEAMS.map(team => (
-          <button
-            key={team}
-            onClick={() => setFilterTeam(team === filterTeam ? '' : team)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border whitespace-nowrap transition-all shrink-0',
-              filterTeam === team
-                ? 'bg-[#ff6b00] border-[#ff6b00] text-white'
-                : 'bg-card border-border text-muted-foreground hover:border-[#ff6b00]/40 hover:text-white'
-            )}
-          >
-            {team}
-          </button>
-        ))}
+        {IPL_TEAMS.map(team => {
+          const info = getTeamInfo(team)
+          return (
+            <button
+              key={team}
+              onClick={() => setFilterTeam(team === filterTeam ? '' : team)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border whitespace-nowrap transition-all shrink-0',
+                filterTeam === team
+                  ? 'bg-[#ff6b00] border-[#ff6b00] text-white'
+                  : 'bg-card border-border text-muted-foreground hover:border-[#ff6b00]/40 hover:text-white'
+              )}
+            >
+              <TeamLogo teamName={info?.name ?? team} size={20} />
+              {team}
+            </button>
+          )
+        })}
       </div>
 
       {/* Main layout */}
@@ -370,7 +364,6 @@ export default function PlayerPicker({ players, leagueId, gameweekId, gameweekNa
               {filtered.map(player => {
                 const isSelected = selectedIds.has(player.id)
                 const sel = selected.find(s => s.player_id === player.id)
-                const teamBadge = TEAM_BADGE_COLORS[player.ipl_team] ?? 'bg-muted text-muted-foreground border-border'
                 const disabled = !isSelected && (
                   selected.length >= SQUAD_SIZE ||
                   remaining < player.fantasy_price ||
@@ -414,10 +407,8 @@ export default function PlayerPicker({ players, leagueId, gameweekId, gameweekNa
                       </div>
                     </div>
 
-                    {/* Team badge */}
-                    <span className={`text-xs px-2 py-0.5 rounded-md border font-medium ${teamBadge}`}>
-                      {player.ipl_team}
-                    </span>
+                    {/* Team logo */}
+                    <TeamLogo teamName={player.ipl_team} size={24} />
 
                     {/* Price + add button */}
                     <div className="flex items-center gap-2">

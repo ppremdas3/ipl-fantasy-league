@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import MatchesTabs from '@/components/matches/MatchesTabs'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 
 export default async function MatchesPage() {
   const supabase = await createClient()
@@ -10,60 +10,36 @@ export default async function MatchesPage() {
 
   const { data: matches } = await supabase
     .from('ipl_matches')
-    .select('*')
+    .select('id, match_number, team1, team2, venue, scheduled_at, status, result')
     .order('match_number')
 
-  const statusColor: Record<string, string> = {
-    upcoming: 'bg-muted text-muted-foreground',
-    live: 'bg-green-500/20 text-green-400',
-    completed: 'bg-blue-500/20 text-blue-400',
-  }
+  const all = (matches ?? []) as {
+    id: string
+    match_number: number
+    team1: string
+    team2: string
+    venue: string | null
+    scheduled_at: string | null
+    status: string
+    result: string | null
+  }[]
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold">IPL 2026 Matches</h1>
-      {!matches || matches.length === 0 ? (
+    <div className="space-y-5 max-w-2xl mx-auto">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-black text-white">IPL 2026</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{all.length} matches · Season schedule</p>
+      </div>
+
+      {all.length === 0 ? (
         <Card className="bg-card border-border">
-          <CardContent className="py-16 text-center text-muted-foreground">
-            No matches scheduled yet. Commissioner can add them via Admin panel.
+          <CardContent className="py-16 text-center text-muted-foreground text-sm">
+            No matches scheduled yet. Commissioner can add them via the Admin panel.
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {matches.map(m => (
-            <Card key={m.id} className="bg-card border-border hover:border-[#ff6b00]/40 transition-colors">
-              <CardContent className="py-4 px-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-muted-foreground">#{m.match_number}</span>
-                      <Badge className={`text-xs ${statusColor[m.status]}`}>{m.status}</Badge>
-                    </div>
-                    <p className="font-bold text-lg">
-                      <span className="text-[#ff6b00]">{m.team1}</span>
-                      <span className="text-muted-foreground mx-2">vs</span>
-                      <span className="text-[#00d4aa]">{m.team2}</span>
-                    </p>
-                    {m.venue && <p className="text-xs text-muted-foreground mt-0.5">{m.venue}</p>}
-                  </div>
-                  {m.scheduled_at && (
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-medium">
-                        {new Date(m.scheduled_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(m.scheduled_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {m.result && (
-                  <p className="text-xs text-[#00d4aa] mt-2 pt-2 border-t border-border">{m.result}</p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <MatchesTabs matches={all} />
       )}
     </div>
   )
