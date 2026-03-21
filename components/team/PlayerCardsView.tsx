@@ -56,8 +56,7 @@ export default function PlayerCardsView({ players, selections }: Props) {
       {rows.map(({ role, entries }) => (
         <div key={role}>
           {/* Role label */}
-          <p className="font-rajdhani text-[10px] font-700 tracking-[0.2em] uppercase text-center mb-3"
-            style={{ color: 'rgba(0, 212, 255, 0.5)' }}>
+          <p className="type-label text-center mb-3" style={{ color: 'rgba(0, 212, 255, 0.5)' }}>
             {ROLE_LABELS[role]}
           </p>
           {/* Cards row */}
@@ -125,17 +124,15 @@ function PlayerCard({ player, sel }: { player: Player; sel: SelectionInfo }) {
       {/* Info section */}
       <div className="px-2 pb-2.5 pt-1">
         {/* Name */}
-        <p className="font-orbitron text-[10px] font-800 uppercase tracking-wider text-white leading-tight truncate text-center">
+        <p className="type-player-name text-white leading-tight truncate text-center">
           {displayName.length > 10 ? displayName.slice(0, 10) : displayName}
         </p>
         {/* Team */}
-        <p className="font-rajdhani text-[9px] font-600 tracking-widest uppercase text-center mt-0.5"
-          style={{ color: 'rgba(0, 212, 255, 0.55)' }}>
+        <p className="type-player-team text-center mt-0.5" style={{ color: 'rgba(0, 212, 255, 0.55)' }}>
           {player.ipl_team}
         </p>
         {/* Price */}
-        <p className="font-rajdhani text-[10px] font-700 text-center mt-1"
-          style={{ color: '#00d4ff' }}>
+        <p className="type-player-price text-center mt-1" style={{ color: '#00d4ff' }}>
           ₹{player.fantasy_price}L
         </p>
       </div>

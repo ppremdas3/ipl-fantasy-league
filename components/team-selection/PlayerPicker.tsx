@@ -484,6 +484,7 @@ export default function PlayerPicker({ players, leagueId, gameweekId, gameweekNa
       {statsPlayer && (
         <PlayerStatsModal
           player={statsPlayer}
+          leagueId={leagueId}
           isSelected={selectedIds.has(statsPlayer.id)}
           isCaptain={selected.find(s => s.player_id === statsPlayer.id)?.is_captain ?? false}
           isViceCaptain={selected.find(s => s.player_id === statsPlayer.id)?.is_vice_captain ?? false}

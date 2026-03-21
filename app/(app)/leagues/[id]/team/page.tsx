@@ -214,16 +214,16 @@ export default async function TeamPage({
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
         <div className="card-futuristic rounded-xl p-3 text-center">
-          <p className="font-rajdhani text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Players</p>
-          <p className="font-orbitron text-2xl font-900 text-[#ff6b00] mt-1">{rows.length}<span className="text-sm text-muted-foreground">/11</span></p>
+          <p className="type-label text-muted-foreground">Players</p>
+          <p className="type-score mt-1 text-[#ff6b00]">{rows.length}<span className="type-caption text-muted-foreground">/11</span></p>
         </div>
         <div className="card-futuristic rounded-xl p-3 text-center">
-          <p className="font-rajdhani text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Team Cost</p>
-          <p className="font-orbitron text-2xl font-900 text-white mt-1">₹{totalCost}<span className="text-sm text-muted-foreground">L</span></p>
+          <p className="type-label text-muted-foreground">Team Cost</p>
+          <p className="type-score mt-1 text-white">₹{totalCost}<span className="type-caption text-muted-foreground">L</span></p>
         </div>
         <div className="card-futuristic rounded-xl p-3 text-center">
-          <p className="font-rajdhani text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Total Pts</p>
-          <p className="font-orbitron text-2xl font-900 mt-1" style={{ color: '#00d4ff' }}>{Number(mem.total_points).toFixed(1)}</p>
+          <p className="type-label text-muted-foreground">Total Pts</p>
+          <p className="type-score mt-1" style={{ color: '#00d4ff' }}>{Number(mem.total_points).toFixed(1)}</p>
         </div>
       </div>
 
