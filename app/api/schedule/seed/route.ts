@@ -1,32 +1,57 @@
+/**
+ * POST /api/schedule/seed
+ *
+ * Fetches the full IPL 2026 season schedule from Cricbuzz (1 API request)
+ * and upserts all matches + generates gameweeks.
+ *
+ * Requires RAPIDAPI_KEY in environment (add to Vercel env vars for production).
+ *
+ * Prerequisites — run once in Supabase SQL editor if not done yet:
+ *   ALTER TABLE ipl_matches ADD COLUMN IF NOT EXISTS cricbuzz_match_id TEXT;
+ *   CREATE UNIQUE INDEX IF NOT EXISTS ipl_matches_cricbuzz_id_idx ON ipl_matches(cricbuzz_match_id);
+ */
+
 import { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-// IPL 2026 Schedule — Part 1 (Matches 1–20)
-// All times converted to UTC (IST = UTC+5:30)
-// 7:30 PM IST = 14:00 UTC | 3:30 PM IST = 10:00 UTC
-const IPL_2026_MATCHES = [
-  { match_number: 1,  team1: 'RCB',  team2: 'SRH',  scheduled_at: '2026-03-28T14:00:00Z', venue: 'Bengaluru' },
-  { match_number: 2,  team1: 'MI',   team2: 'KKR',  scheduled_at: '2026-03-29T14:00:00Z', venue: 'Mumbai' },
-  { match_number: 3,  team1: 'RR',   team2: 'CSK',  scheduled_at: '2026-03-30T14:00:00Z', venue: 'Guwahati' },
-  { match_number: 4,  team1: 'PBKS', team2: 'GT',   scheduled_at: '2026-03-31T14:00:00Z', venue: 'New Chandigarh' },
-  { match_number: 5,  team1: 'LSG',  team2: 'DC',   scheduled_at: '2026-04-01T14:00:00Z', venue: 'Lucknow' },
-  { match_number: 6,  team1: 'KKR',  team2: 'SRH',  scheduled_at: '2026-04-02T14:00:00Z', venue: 'Kolkata' },
-  { match_number: 7,  team1: 'CSK',  team2: 'PBKS', scheduled_at: '2026-04-03T14:00:00Z', venue: 'Chennai' },
-  { match_number: 8,  team1: 'DC',   team2: 'MI',   scheduled_at: '2026-04-04T10:00:00Z', venue: 'Delhi' },
-  { match_number: 9,  team1: 'GT',   team2: 'RR',   scheduled_at: '2026-04-04T14:00:00Z', venue: 'Ahmedabad' },
-  { match_number: 10, team1: 'SRH',  team2: 'LSG',  scheduled_at: '2026-04-05T10:00:00Z', venue: 'Hyderabad' },
-  { match_number: 11, team1: 'RCB',  team2: 'CSK',  scheduled_at: '2026-04-05T14:00:00Z', venue: 'Bengaluru' },
-  { match_number: 12, team1: 'KKR',  team2: 'PBKS', scheduled_at: '2026-04-06T14:00:00Z', venue: 'Kolkata' },
-  { match_number: 13, team1: 'RR',   team2: 'MI',   scheduled_at: '2026-04-07T14:00:00Z', venue: 'Guwahati' },
-  { match_number: 14, team1: 'DC',   team2: 'GT',   scheduled_at: '2026-04-08T14:00:00Z', venue: 'Delhi' },
-  { match_number: 15, team1: 'KKR',  team2: 'LSG',  scheduled_at: '2026-04-09T14:00:00Z', venue: 'Kolkata' },
-  { match_number: 16, team1: 'RR',   team2: 'RCB',  scheduled_at: '2026-04-10T14:00:00Z', venue: 'Guwahati' },
-  { match_number: 17, team1: 'PBKS', team2: 'SRH',  scheduled_at: '2026-04-11T10:00:00Z', venue: 'New Chandigarh' },
-  { match_number: 18, team1: 'CSK',  team2: 'DC',   scheduled_at: '2026-04-11T14:00:00Z', venue: 'Chennai' },
-  { match_number: 19, team1: 'LSG',  team2: 'GT',   scheduled_at: '2026-04-12T10:00:00Z', venue: 'Lucknow' },
-  { match_number: 20, team1: 'MI',   team2: 'RCB',  scheduled_at: '2026-04-12T14:00:00Z', venue: 'Mumbai' },
-]
+const IPL_SERIES_ID = 9241
+
+// Cricbuzz team short name → our DB abbreviation (for any mismatches)
+const TEAM_MAP: Record<string, string> = {
+  'RCB':  'RCB', 'SRH':  'SRH', 'MI':   'MI',  'KKR':  'KKR',
+  'RR':   'RR',  'CSK':  'CSK', 'PBKS': 'PBKS', 'GT':   'GT',
+  'LSG':  'LSG', 'DC':   'DC',
+}
+
+interface CricbuzzMatchInfo {
+  matchId: number
+  matchDesc: string       // "1st Match", "2nd Match", …
+  state: string           // "Upcoming" | "In Progress" | "Complete"
+  status?: string         // result text when complete
+  startDate: string       // unix ms as string
+  team1: { teamSName: string }
+  team2: { teamSName: string }
+  venueInfo?: { ground: string; city: string }
+}
+
+interface MatchDetailsItem {
+  matchDetailsMap?: {
+    match: { matchInfo: CricbuzzMatchInfo }[]
+  }
+}
+
+function parseMatchNumber(desc: string): number | null {
+  const m = desc.match(/^(\d+)/)
+  return m ? parseInt(m[1]) : null
+}
+
+function mapState(state: string): 'upcoming' | 'live' | 'completed' {
+  const s = state.toLowerCase()
+  if (s.includes('complete') || s.includes('result')) return 'completed'
+  if (s.includes('progress') || s.includes('live'))   return 'live'
+  return 'upcoming'
+}
 
 export async function POST(_request: NextRequest) {
   const cookieStore = await cookies()
@@ -45,20 +70,88 @@ export async function POST(_request: NextRequest) {
   const { data: { user } } = await anonSupabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const rows = IPL_2026_MATCHES.map(m => ({ ...m, status: 'upcoming' as const }))
+  const apiKey = process.env.RAPIDAPI_KEY
+  if (!apiKey) {
+    return Response.json(
+      { error: 'RAPIDAPI_KEY not set. Add it to environment variables.' },
+      { status: 500 }
+    )
+  }
 
-  const { error } = await supabase
+  // ── Fetch full season schedule from Cricbuzz (1 request) ──
+  let seriesData: { matchDetails: MatchDetailsItem[] }
+  try {
+    const res = await fetch(
+      `https://cricbuzz-cricket.p.rapidapi.com/series/v1/${IPL_SERIES_ID}`,
+      {
+        headers: {
+          'x-rapidapi-key': apiKey,
+          'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+        },
+        cache: 'no-store',
+      }
+    )
+    if (!res.ok) throw new Error(`Cricbuzz returned HTTP ${res.status}`)
+    seriesData = await res.json()
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return Response.json({ error: `Cricbuzz request failed: ${msg}` }, { status: 502 })
+  }
+
+  // ── Parse matches ──
+  const matchRows: {
+    match_number: number
+    cricbuzz_match_id: string
+    team1: string
+    team2: string
+    scheduled_at: string
+    venue: string | null
+    status: 'upcoming' | 'live' | 'completed'
+  }[] = []
+
+  for (const item of seriesData.matchDetails ?? []) {
+    if (!item.matchDetailsMap) continue
+    for (const { matchInfo: m } of item.matchDetailsMap.match ?? []) {
+      const matchNumber = parseMatchNumber(m.matchDesc)
+      if (!matchNumber) continue
+
+      const t1 = TEAM_MAP[m.team1.teamSName] ?? m.team1.teamSName
+      const t2 = TEAM_MAP[m.team2.teamSName] ?? m.team2.teamSName
+
+      matchRows.push({
+        match_number:      matchNumber,
+        cricbuzz_match_id: String(m.matchId),
+        team1:             t1,
+        team2:             t2,
+        scheduled_at:      new Date(parseInt(m.startDate)).toISOString(),
+        venue:             m.venueInfo ? `${m.venueInfo.ground}, ${m.venueInfo.city}` : null,
+        status:            mapState(m.state),
+      })
+    }
+  }
+
+  if (matchRows.length === 0) {
+    return Response.json(
+      { error: 'No matches found in Cricbuzz response. The series may not be available yet.' },
+      { status: 422 }
+    )
+  }
+
+  // ── Upsert matches ──
+  const { error: matchErr } = await supabase
     .from('ipl_matches')
-    .upsert(rows, { onConflict: 'match_number' })
+    .upsert(matchRows, { onConflict: 'match_number' })
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (matchErr) return Response.json({ error: matchErr.message }, { status: 500 })
 
-  // Auto-generate gameweeks after seeding
+  // ── Auto-generate gameweeks ──
   const { data: allMatches } = await supabase
     .from('ipl_matches')
     .select('id, scheduled_at, match_number')
     .not('scheduled_at', 'is', null)
     .order('scheduled_at')
+
+  let gameweeksCreated = 0
 
   if (allMatches && allMatches.length > 0) {
     const weeks = new Map<string, { start: Date; end: Date; matchIds: string[]; firstMatch: Date }>()
@@ -76,11 +169,11 @@ export async function POST(_request: NextRequest) {
     const weekEntries = Array.from(weeks.entries()).sort((a, b) => a[0].localeCompare(b[0]))
     const gameweekRows = weekEntries.map(([, w], i) => ({
       week_number: i + 1,
-      name: `Week ${i + 1}`,
-      start_date: w.start.toISOString().split('T')[0],
-      end_date: w.end.toISOString().split('T')[0],
-      deadline: w.firstMatch.toISOString(),
-      status: 'upcoming' as const,
+      name:        `Week ${i + 1}`,
+      start_date:  w.start.toISOString().split('T')[0],
+      end_date:    w.end.toISOString().split('T')[0],
+      deadline:    w.firstMatch.toISOString(),
+      status:      'upcoming' as const,
     }))
 
     const { data: insertedWeeks, error: weekErr } = await supabase
@@ -88,7 +181,10 @@ export async function POST(_request: NextRequest) {
       .upsert(gameweekRows, { onConflict: 'week_number' })
       .select('id, week_number')
 
-    if (!weekErr && insertedWeeks) {
+    if (weekErr) return Response.json({ error: weekErr.message }, { status: 500 })
+
+    if (insertedWeeks) {
+      gameweeksCreated = insertedWeeks.length
       for (const [key, w] of weeks) {
         const weekNum = weekEntries.findIndex(([k]) => k === key) + 1
         const gw = insertedWeeks.find((g: { id: string; week_number: number }) => g.week_number === weekNum)
@@ -98,15 +194,16 @@ export async function POST(_request: NextRequest) {
   }
 
   return Response.json({
-    success: true,
-    matches_seeded: rows.length,
-    message: `Seeded ${rows.length} matches and generated gameweeks`,
+    success:          true,
+    matches_imported: matchRows.length,
+    gameweeks_created: gameweeksCreated,
+    message:          `Imported ${matchRows.length} matches and created ${gameweeksCreated} gameweeks`,
   })
 }
 
 function getMonday(d: Date): Date {
   const date = new Date(d)
-  const day = date.getDay()
+  const day  = date.getDay()
   const diff = date.getDate() - day + (day === 0 ? -6 : 1)
   date.setDate(diff)
   date.setHours(0, 0, 0, 0)
