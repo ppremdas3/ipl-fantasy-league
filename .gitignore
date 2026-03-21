@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Cricsheet agent cache
 /agents/.cricket-cache/
+
+# Python virtual environment
+.venv/
