@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
 """
-IPL Fantasy — Player Image Fetcher  (Wikipedia / Wikidata edition)
+IPL Fantasy — Player Image Fetcher  (single Wikidata SPARQL query)
 ==================================================================
-Private / non-commercial use only (personal friend group league).
+Private / non-commercial use only.
 
-Uses the fully-open Wikipedia + Wikidata APIs (no API key, no bot-blocking)
-to find each player's ESPNcricinfo numeric ID (Wikidata property P2697),
-then constructs the headshot CDN URL the app already expects.
+Strategy
+--------
+One single SPARQL query to Wikidata fetches ALL ~31k cricketers who have an
+ESPNcricinfo player ID (property P2697).  We then match our 243 players
+against that local table — no per-player HTTP calls, no rate limiting.
 
 Setup
 -----
     cd "IPL fantasy league/ipl-fantasy"
-    python3 -m venv .venv
-    source .venv/bin/activate
-    pip install requests              # optional, only needed for --download
+    # No extra packages needed — uses only Python stdlib
+    # (add 'requests' only if you want --download)
 
 Run
 ---
     python scripts/fetch_player_images.py
     python scripts/fetch_player_images.py --dry-run
-    python scripts/fetch_player_images.py --download   # save photos locally
+    python scripts/fetch_player_images.py --download   # also save photos locally
 
 After running
 -------------
-    1. Open Supabase → SQL Editor
-    2. Paste and run:  scripts/output/update_cricinfo_ids.sql
-    3. Restart dev server → real player headshots appear automatically
+    1. Supabase → SQL Editor → paste + run  scripts/output/update_cricinfo_ids.sql
+    2. npm run dev  →  real player headshots load automatically
 """
 
 import argparse
@@ -34,6 +34,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -44,126 +45,130 @@ SCRIPT_DIR = Path(__file__).parent
 REPO_ROOT  = SCRIPT_DIR.parent
 SEED_SQL   = REPO_ROOT / "supabase" / "seed" / "ipl_players_2026.sql"
 OUTPUT_DIR = SCRIPT_DIR / "output"
-CACHE_FILE = SCRIPT_DIR / ".cache.json"
 OUT_JSON   = OUTPUT_DIR / "player_images.json"
 OUT_SQL    = OUTPUT_DIR / "update_cricinfo_ids.sql"
 OUT_PHOTOS = OUTPUT_DIR / "photos"
-
-RATE_LIMIT  = 0.4   # seconds between API calls — Wikipedia asks for politeness
-TIMEOUT     = 12
 
 FALLBACK_URL = (
     "https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/"
     "Portrait_Placeholder.png/240px-Portrait_Placeholder.png"
 )
 
-# Wikipedia / Wikidata require a descriptive User-Agent
-WP_HEADERS = {
-    "User-Agent": "IPLFantasyPersonalApp/1.0 (private cricket fantasy league; non-commercial)"
+HEADERS = {
+    "User-Agent": "IPLFantasyPersonalApp/1.0 (private non-commercial cricket league)",
+    "Accept": "application/sparql-results+json",
+}
+
+# ─── Wikidata country labels → our seed nationality strings ───────────────────
+# Used to disambiguate duplicate names (e.g. two "Rohit Sharma" cricketers)
+COUNTRY_MAP = {
+    "India": ["India"],
+    "Australia": ["Australia"],
+    "England": ["England"],
+    "South Africa": ["South Africa"],
+    "New Zealand": ["New Zealand"],
+    "West Indies": ["West Indies", "Trinidad and Tobago", "Jamaica", "Barbados",
+                    "Guyana", "Saint Kitts and Nevis"],
+    "Afghanistan": ["Afghanistan"],
+    "Sri Lanka": ["Sri Lanka"],
+    "Bangladesh": ["Bangladesh"],
+    "Pakistan": ["Pakistan"],
+    "Zimbabwe": ["Zimbabwe"],
+    "Ireland": ["Ireland"],
+    "Netherlands": ["Netherlands"],
+    "United States": ["United States of America"],
 }
 
 
 # ─── CDN URL ──────────────────────────────────────────────────────────────────
-def cricinfo_image_url(cricinfo_id) -> str:
+def cricinfo_image_url(pid) -> str:
     return (
         f"https://img1.hscicdn.com/image/upload/"
         f"f_auto,t_ds_square_w_320/"
-        f"lsci/db/PICTURES/CMS/{cricinfo_id}/{cricinfo_id}.jpg"
+        f"lsci/db/PICTURES/CMS/{pid}/{pid}.jpg"
     )
 
 
-# ─── Wikipedia / Wikidata helpers ─────────────────────────────────────────────
-def wp_get(url: str) -> dict:
-    req = urllib.request.Request(url, headers=WP_HEADERS)
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-        return json.loads(r.read())
+# ─── Normalise name for fuzzy matching ───────────────────────────────────────
+def normalise(s: str) -> str:
+    """Lowercase, strip accents, remove punctuation."""
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return re.sub(r"[^a-z0-9 ]", "", s.lower()).strip()
 
 
-def wikipedia_title(player_name: str, is_overseas: bool) -> Optional[str]:
+# ─── Fetch full Wikidata cricketer lookup in one SPARQL query ─────────────────
+def fetch_wikidata_cricketers() -> list[dict]:
     """
-    Return the most likely Wikipedia article title for a cricketer.
-    Tries two queries: one with 'cricketer', one without, to improve
-    accuracy for overseas players whose pages may not mention 'IPL'.
+    Returns a list of { name, cricinfo_id, nationality } for every cricketer
+    in Wikidata that has an ESPNcricinfo player ID (P2697).
+    ~31 000 rows, takes a few seconds.
     """
-    queries = [f"{player_name} cricketer"]
-    if is_overseas:
-        queries.append(player_name)          # fallback without qualifier
-
-    for query in queries:
-        data = wp_get(
-            "https://en.wikipedia.org/w/api.php?"
-            + urllib.parse.urlencode({
-                "action": "query", "list": "search",
-                "srsearch": query, "format": "json", "srlimit": 3,
-            })
-        )
-        for result in data.get("query", {}).get("search", []):
-            title = result["title"]
-            # Accept if the title contains any word from the player name
-            words = [w.lower() for w in player_name.split() if len(w) > 2]
-            if any(w in title.lower() for w in words):
-                return title
-    return None
-
-
-def wikidata_id_for_title(title: str) -> Optional[str]:
-    """Return the Wikidata Q-id linked to a Wikipedia article title."""
-    data = wp_get(
-        "https://en.wikipedia.org/w/api.php?"
-        + urllib.parse.urlencode({
-            "action": "query", "titles": title,
-            "prop": "pageprops", "format": "json",
-        })
-    )
-    for page in data.get("query", {}).get("pages", {}).values():
-        qid = page.get("pageprops", {}).get("wikibase_item")
-        if qid:
-            return qid
-    return None
-
-
-def cricinfo_id_from_wikidata(qid: str) -> Optional[str]:
-    """
-    Look up Wikidata property P2697 = 'ESPNcricinfo.com player ID'.
-    Returns the numeric string ID or None.
-    """
-    data = wp_get(
-        "https://www.wikidata.org/w/api.php?"
-        + urllib.parse.urlencode({
-            "action": "wbgetentities", "ids": qid,
-            "props": "claims", "format": "json",
-        })
-    )
-    claims = data.get("entities", {}).get(qid, {}).get("claims", {})
-    for v in claims.get("P2697", []):
-        val = v.get("mainsnak", {}).get("datavalue", {}).get("value", "")
-        if val and str(val).strip():
-            return str(val).strip()
-    return None
-
-
-def lookup_player(name: str, is_overseas: bool) -> Optional[dict]:
-    """
-    Full lookup pipeline: Wikipedia search → Wikidata Q-id → P2697 cricinfo ID.
-    Returns { cricinfo_id, found_name, image_url } or None.
-    """
-    title = wikipedia_title(name, is_overseas)
-    if not title:
-        return None
-
-    qid = wikidata_id_for_title(title)
-    if not qid:
-        return None
-
-    cricinfo_id = cricinfo_id_from_wikidata(qid)
-    if not cricinfo_id:
-        return None
-
-    return {
-        "cricinfo_id": cricinfo_id,
-        "found_name":  title,
-        "image_url":   cricinfo_image_url(cricinfo_id),
+    query = """
+    SELECT ?playerLabel ?cricinfoId ?nationalityLabel WHERE {
+      ?player wdt:P2697 ?cricinfoId .
+      ?player wdt:P106  wd:Q12299841 .
+      OPTIONAL { ?player wdt:P27 ?nationality . }
+      SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "en" .
+      }
     }
+    """
+    url = "https://query.wikidata.org/sparql?" + urllib.parse.urlencode(
+        {"query": query, "format": "json"}
+    )
+    print("🌐  Querying Wikidata for all cricketers with ESPNcricinfo IDs …", flush=True)
+    req = urllib.request.Request(url, headers=HEADERS)
+    with urllib.request.urlopen(req, timeout=60) as r:
+        data = json.loads(r.read())
+
+    rows = []
+    for b in data["results"]["bindings"]:
+        rows.append({
+            "name":        b["playerLabel"]["value"],
+            "cricinfo_id": b["cricinfoId"]["value"].strip(),
+            "nationality": b.get("nationalityLabel", {}).get("value", ""),
+        })
+    print(f"   Got {len(rows)} entries\n")
+    return rows
+
+
+# ─── Build lookup table ───────────────────────────────────────────────────────
+def build_lookup(rows: list[dict]) -> dict[str, list[dict]]:
+    """
+    Returns { normalised_name: [row, ...] } — a list because multiple
+    cricketers can share a name (e.g. two 'Rohit Sharma').
+    """
+    lookup: dict[str, list[dict]] = {}
+    for row in rows:
+        key = normalise(row["name"])
+        lookup.setdefault(key, []).append(row)
+    return lookup
+
+
+def best_match(candidates: list[dict], seed_nationality: str) -> dict:
+    """
+    Pick the best candidate when there are multiple cricketers with the same
+    name by preferring the one whose Wikidata nationality matches the seed.
+    Falls back to the entry with the smallest (oldest) cricinfo ID.
+    """
+    if len(candidates) == 1:
+        return candidates[0]
+
+    # Try nationality match
+    expected_countries = COUNTRY_MAP.get(seed_nationality, [seed_nationality])
+    for c in candidates:
+        if any(ec.lower() in c["nationality"].lower() for ec in expected_countries):
+            return c
+
+    # Fall back: smallest numeric cricinfo_id = more established player
+    def id_key(c):
+        try:
+            return int(c["cricinfo_id"])
+        except ValueError:
+            return 999_999_999
+
+    return min(candidates, key=id_key)
 
 
 # ─── Parse player names from seed SQL ─────────────────────────────────────────
@@ -199,18 +204,18 @@ def fetch_players_from_supabase() -> list[dict]:
     return resp.json()
 
 
-# ─── Cache helpers ─────────────────────────────────────────────────────────────
-def load_cache() -> dict:
-    if CACHE_FILE.exists():
-        try:
-            return json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            return {}
-    return {}
-
-
-def save_cache(cache: dict):
-    CACHE_FILE.write_text(json.dumps(cache, indent=2, ensure_ascii=False), encoding="utf-8")
+# ─── Optional: download image ─────────────────────────────────────────────────
+def download_image(url: str, dest: Path) -> bool:
+    try:
+        import requests
+        resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+        resp.raise_for_status()
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(resp.content)
+        return True
+    except Exception as e:
+        print(f"  ✗ {e}")
+        return False
 
 
 # ─── Main ──────────────────────────────────────────────────────────────────────
@@ -234,83 +239,71 @@ def main():
             sys.exit(f"❌  Seed SQL not found:\n    {SEED_SQL}")
         print(f"📄  Reading players from {SEED_SQL.name} …")
         players = parse_players_from_sql(SEED_SQL)
+    print(f"   {len(players)} players loaded\n")
 
-    print(f"   Found {len(players)} players\n")
+    # 2. Single bulk Wikidata query ────────────────────────────────────────────
+    wikidata_rows = fetch_wikidata_cricketers()
+    lookup = build_lookup(wikidata_rows)
 
-    # 2. Load cache ────────────────────────────────────────────────────────────
-    cache = load_cache()
-    cached_count = sum(1 for p in players if p["name"] in cache)
-    print(f"💾  Cache: {cached_count}/{len(players)} players already fetched\n")
-
-    # 3. Look up each player ───────────────────────────────────────────────────
+    # 3. Match each player ─────────────────────────────────────────────────────
     results: dict[str, dict] = {}
     not_found: list[str]     = []
-    check_manually: list[str] = []
+    multi_match: list[str]   = []
 
     for i, p in enumerate(players, 1):
         name = p["name"]
         label = f"[{i:>3}/{len(players)}] {name:<32} ({p['ipl_team']})"
+        key = normalise(name)
+        candidates = lookup.get(key, [])
 
-        if name in cache:
-            r = cache[name]
-            tag = f"✓ cached (id={r['cricinfo_id']})" if r["cricinfo_id"] else "✗ cached (no id)"
-            print(f"{label}  {tag}")
-            results[name] = r
-            continue
+        if not candidates:
+            # Try matching on last name only as a fallback
+            last = normalise(name.split()[-1])
+            first = normalise(name.split()[0])
+            candidates = [
+                r for r in wikidata_rows
+                if normalise(r["name"]).endswith(last)
+                and normalise(r["name"]).startswith(first)
+            ]
 
-        print(f"{label}  … ", end="", flush=True)
-
-        try:
-            info = lookup_player(name, p["is_overseas"])
-        except Exception as e:
-            print(f"✗ error: {e}")
-            info = None
-
-        if info:
-            pid = info["cricinfo_id"]
-            # Check the found Wikipedia title contains the player's last name
-            last_word = name.split()[-1].lower()
-            name_ok = last_word in info["found_name"].lower()
-
-            if not name_ok:
-                check_manually.append(f"{name}  ←→  {info['found_name']}  (id={pid})")
-                print(f"⚠  id={pid}  wiki='{info['found_name']}'  [CHECK]")
-            else:
-                print(f"✓  id={pid}  ({info['found_name']})")
-
-            entry = {
+        if candidates:
+            row = best_match(candidates, p["nationality"])
+            pid = row["cricinfo_id"]
+            had_multi = len(candidates) > 1
+            if had_multi:
+                multi_match.append(
+                    f"{name}  →  id={pid}  ({row['name']}, {row['nationality']})  "
+                    f"[{len(candidates)} candidates]"
+                )
+            print(f"{label}  ✓  id={pid}  ({row['name']})"
+                  + ("  ⚠ multi" if had_multi else ""))
+            results[name] = {
                 "cricinfo_id": pid,
-                "image_url":   info["image_url"],
-                "found_name":  info["found_name"],
-                "status":      "ok" if name_ok else "check",
+                "image_url":   cricinfo_image_url(pid),
+                "found_name":  row["name"],
+                "status":      "ok",
             }
         else:
-            print("✗  NOT FOUND — fallback silhouette")
+            print(f"{label}  ✗  not found — fallback")
             not_found.append(name)
-            entry = {
+            results[name] = {
                 "cricinfo_id": None,
                 "image_url":   FALLBACK_URL,
                 "found_name":  name,
                 "status":      "not_found",
             }
 
-        results[name] = entry
-        cache[name]   = entry
-        save_cache(cache)
-        time.sleep(RATE_LIMIT)
-
     # 4. Summary ───────────────────────────────────────────────────────────────
-    n_ok    = sum(1 for r in results.values() if r["status"] == "ok")
-    n_check = sum(1 for r in results.values() if r["status"] == "check")
-    n_miss  = len(not_found)
+    n_ok   = sum(1 for r in results.values() if r["status"] == "ok")
+    n_miss = len(not_found)
 
     print(f"\n{'─'*62}")
-    print(f"  ✓ Found & matched   : {n_ok}")
-    print(f"  ⚠ Check manually    : {n_check}")
-    print(f"  ✗ Not found         : {n_miss}")
-    if check_manually:
-        print("\n  Verify these (Wikipedia title differed):")
-        for line in check_manually:
+    print(f"  ✓ Found       : {n_ok}")
+    print(f"  ⚠ Multi-match : {len(multi_match)}  (auto-resolved by nationality/oldest ID)")
+    print(f"  ✗ Not found   : {n_miss}")
+    if multi_match:
+        print("\n  Auto-resolved multi-match (verify if photos look wrong):")
+        for line in multi_match:
             print(f"    {line}")
     if not_found:
         print("\n  Not found (will show initials in app):")
@@ -332,7 +325,7 @@ def main():
     # 6. SQL UPDATE statements ────────────────────────────────────────────────
     lines = [
         "-- Auto-generated by scripts/fetch_player_images.py",
-        "-- Paste and run in Supabase SQL Editor to populate cricinfo_id",
+        "-- Paste and run in Supabase SQL Editor",
         "",
     ]
     for name, r in results.items():
@@ -343,20 +336,20 @@ def main():
                 f"  SET cricinfo_id = '{r['cricinfo_id']}'"
                 f"  WHERE name = '{safe}';"
             )
-    lines += ["", "-- Not found:"]
+    lines += ["", "-- Not found (no Wikipedia/Wikidata entry):"]
     for name in not_found:
         lines.append(f"-- {name}")
-    if check_manually:
-        lines += ["", "-- Check these IDs manually (title mismatch):"]
-        for line in check_manually:
+    if multi_match:
+        lines += ["", "-- Auto-resolved multi-match (verify):"]
+        for line in multi_match:
             lines.append(f"-- {line}")
 
     OUT_SQL.write_text("\n".join(lines), encoding="utf-8")
     print(f"✅  {OUT_SQL}")
 
-    # 7. Optional photo download ───────────────────────────────────────────────
+    # 7. Optional download ────────────────────────────────────────────────────
     if args.download:
-        import requests as req_lib
+        import requests as _r  # noqa
         print(f"\n⬇   Downloading photos to {OUT_PHOTOS} …")
         for name, r in results.items():
             if r["image_url"] == FALLBACK_URL:
@@ -365,24 +358,15 @@ def main():
             if dest.exists():
                 continue
             print(f"   {name} … ", end="", flush=True)
-            try:
-                resp = req_lib.get(r["image_url"], timeout=15,
-                                   headers={"User-Agent": "Mozilla/5.0"})
-                resp.raise_for_status()
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(resp.content)
-                print("✓")
-            except Exception as e:
-                print(f"✗ {e}")
-            time.sleep(0.4)
-        print(f"\n✅  Photos saved to {OUT_PHOTOS}")
+            print("✓" if download_image(r["image_url"], dest) else "✗")
+            time.sleep(0.3)
 
     print(
         f"\n{'─'*62}\n"
         f"Next steps:\n"
         f"  1. Supabase → SQL Editor → run {OUT_SQL.name}\n"
-        f"  2. npm run dev  (restart dev server)\n"
-        f"  3. Player headshots will load automatically\n"
+        f"  2. npm run dev  (restart the dev server)\n"
+        f"  3. Player headshots load automatically\n"
     )
 
 
