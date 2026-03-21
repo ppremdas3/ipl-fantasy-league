@@ -2,13 +2,15 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button-variants'
-import { Plus, Users, Trophy, ChevronRight, Zap } from 'lucide-react'
+import { Plus, Users, Trophy, Zap, ChevronRight, Crown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { FadeUp, StaggerList, StaggerItem } from '@/components/ui/motion'
+import { AnimatedName } from '@/components/ui/AnimatedName'
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
-  setup:     { label: 'Setup',     color: 'text-muted-foreground bg-muted/50',    dot: 'bg-muted-foreground' },
-  live:      { label: 'Live',      color: 'text-green-400 bg-green-500/15',       dot: 'bg-green-400' },
-  completed: { label: 'Completed', color: 'text-muted-foreground bg-muted/50',    dot: 'bg-muted-foreground' },
+const STATUS_CONFIG: Record<string, { label: string; textColor: string; bgColor: string; dot: string; live: boolean }> = {
+  setup:     { label: 'Setup',     textColor: 'text-[#5a7a9a]', bgColor: 'bg-[#0e2040]/60', dot: 'bg-[#5a7a9a]', live: false },
+  live:      { label: 'Live',      textColor: 'text-[#22c55e]', bgColor: 'bg-[#22c55e]/10', dot: 'bg-[#22c55e]', live: true },
+  completed: { label: 'Completed', textColor: 'text-[#5a7a9a]', bgColor: 'bg-[#0e2040]/60', dot: 'bg-[#5a7a9a]', live: false },
 }
 
 export default async function DashboardPage() {
@@ -29,55 +31,85 @@ export default async function DashboardPage() {
     .maybeSingle()
 
   const displayName = (profile as { display_name: string } | null)?.display_name ?? 'Champion'
-  const firstName = displayName.split(' ')[0]
+  const firstName = displayName.split(' ')[0].toUpperCase()
 
   return (
     <div className="space-y-8">
       {/* Hero header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground mb-1">Welcome back</p>
-          <h1 className="text-3xl font-black text-white">
-            {firstName} <span className="text-[#ff6b00]">🏏</span>
-          </h1>
+      <FadeUp>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-rajdhani text-xs tracking-[0.3em] uppercase text-[#5a7a9a] mb-1">
+              Welcome back
+            </p>
+            <h1 className="font-orbitron text-3xl font-900 tracking-wide text-white">
+              <AnimatedName name={firstName} />
+            </h1>
+            <div className="mt-2 h-px w-24 bg-gradient-to-r from-[#ff6b00]/60 to-transparent" />
+          </div>
+          <div className="flex gap-2 shrink-0 mt-1">
+            <Link
+              href="/leagues/join"
+              className={cn(
+                buttonVariants({ variant: 'outline', size: 'sm' }),
+                'border-[#0e2040] hover:border-[#00d4ff]/40 text-[#5a7a9a] hover:text-white gap-1.5 font-rajdhani tracking-wider uppercase text-xs'
+              )}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Join
+            </Link>
+            <Link
+              href="/leagues/new"
+              className={cn(
+                buttonVariants({ size: 'sm' }),
+                'gap-1.5 font-rajdhani tracking-wider uppercase text-xs text-white'
+              )}
+              style={{ background: 'linear-gradient(135deg, #ff8800, #ff6b00)', boxShadow: '0 0 16px rgba(255,107,0,0.35)' }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New League
+            </Link>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href="/leagues/join"
-            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'border-border hover:border-[#ff6b00]/50 text-muted-foreground hover:text-white gap-1.5')}
-          >
-            <Users className="w-3.5 h-3.5" />
-            Join
-          </Link>
-          <Link
-            href="/leagues/new"
-            className={cn(buttonVariants({ size: 'sm' }), 'bg-[#ff6b00] hover:bg-[#e55c00] text-white gap-1.5')}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Create League
-          </Link>
-        </div>
-      </div>
+      </FadeUp>
 
       {!memberships || memberships.length === 0 ? (
-        /* Empty state */
-        <div className="rounded-2xl border border-dashed border-border bg-card/40 py-20 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-[#ff6b00]/10 flex items-center justify-center text-3xl mx-auto mb-4">
-            🏟️
+        /* ── Empty state ── */
+        <FadeUp delay={0.15}>
+          <div className="card-hud rounded-2xl py-20 text-center">
+            {/* Corner brackets already from card-hud */}
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-5"
+              style={{ background: 'rgba(255,107,0,0.08)', boxShadow: '0 0 24px rgba(255,107,0,0.15)' }}
+            >
+              🏟️
+            </div>
+            <h2 className="font-orbitron text-base font-800 tracking-wider uppercase text-white mb-2">
+              No Leagues Yet
+            </h2>
+            <p className="font-rajdhani text-sm tracking-wider text-[#5a7a9a] mb-7">
+              Create or join a league to start playing
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Link
+                href="/leagues/join"
+                className={cn(buttonVariants({ variant: 'outline' }), 'border-[#0e2040] hover:border-[#00d4ff]/40 font-rajdhani tracking-wider uppercase text-xs')}
+              >
+                Join a league
+              </Link>
+              <Link
+                href="/leagues/new"
+                className={cn(buttonVariants(), 'font-rajdhani tracking-wider uppercase text-xs text-white')}
+                style={{ background: 'linear-gradient(135deg, #ff8800, #ff6b00)', boxShadow: '0 0 16px rgba(255,107,0,0.35)' }}
+              >
+                Create one
+              </Link>
+            </div>
           </div>
-          <h2 className="text-lg font-bold text-white mb-2">No leagues yet</h2>
-          <p className="text-muted-foreground text-sm mb-6">Create or join a league to start playing</p>
-          <div className="flex gap-3 justify-center">
-            <Link href="/leagues/join" className={cn(buttonVariants({ variant: 'outline' }), 'border-border hover:border-[#ff6b00]/50')}>
-              Join a league
-            </Link>
-            <Link href="/leagues/new" className={cn(buttonVariants(), 'bg-[#ff6b00] hover:bg-[#e55c00] text-white')}>
-              Create one
-            </Link>
-          </div>
-        </div>
+        </FadeUp>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        /* ── League cards ── */
+        <StaggerList className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {memberships.map((m) => {
             const league = m.league as unknown as { id: string; name: string; status: string; commissioner_id: string; budget_per_team: number } | null
             if (!league) return null
@@ -86,54 +118,94 @@ export default async function DashboardPage() {
             const points = Number(m.total_points)
 
             return (
-              <Link
-                key={m.id}
-                href={`/leagues/${league.id}`}
-                className="group relative bg-card border border-border rounded-2xl p-5 hover:border-[#ff6b00]/40 transition-all hover:shadow-lg hover:shadow-[#ff6b00]/5 block"
-              >
-                {/* Status badge */}
-                <div className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium mb-3 ${status.color}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                  {status.label}
-                </div>
+              <StaggerItem key={m.id}>
+                <Link
+                  href={`/leagues/${league.id}`}
+                  className="group block card-hud rounded-2xl p-5 overflow-hidden"
+                >
+                  {/* Accent stripe — left edge */}
+                  <div
+                    className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-2xl transition-all duration-300"
+                    style={{
+                      background: status.live
+                        ? 'linear-gradient(180deg, #22c55e, #00d4ff)'
+                        : 'linear-gradient(180deg, rgba(0,212,255,0.3), transparent)',
+                    }}
+                  />
 
-                <h3 className="font-bold text-white text-base leading-tight line-clamp-1 mb-1">
-                  {league.name}
-                </h3>
-                <p className="text-xs text-muted-foreground mb-4">
-                  {m.team_name ?? 'No team name'}{isCommissioner ? ' · Commissioner' : ''}
-                </p>
-
-                {/* Points display */}
-                <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Total points</p>
-                    <p className="text-3xl font-black text-[#ff6b00] tabular-nums leading-none">
-                      {points.toFixed(1)}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-[#ff6b00]/10 group-hover:bg-[#ff6b00]/20 flex items-center justify-center transition-colors">
-                    <ChevronRight className="w-5 h-5 text-[#ff6b00]" />
-                  </div>
-                </div>
-
-                {/* Bottom icons */}
-                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border/50">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Trophy className="w-3.5 h-3.5" />
-                    League
-                  </div>
-                  {league.status === 'live' && (
-                    <div className="flex items-center gap-1.5 text-xs text-[#22c55e]">
-                      <Zap className="w-3.5 h-3.5" />
-                      Select Team
-                    </div>
+                  {/* Live glow overlay (only when live) */}
+                  {status.live && (
+                    <div
+                      className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                      style={{ background: 'radial-gradient(ellipse at 0% 50%, rgba(34,197,94,0.06) 0%, transparent 70%)' }}
+                    />
                   )}
-                </div>
-              </Link>
+
+                  {/* Status badge */}
+                  <div className={`inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-rajdhani font-700 tracking-[0.15em] uppercase mb-3 ${status.textColor} ${status.bgColor}`}>
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${status.dot} ${status.live ? 'animate-pulse' : ''}`}
+                    />
+                    {status.label}
+                    {status.live && <span className="ml-0.5">·</span>}
+                  </div>
+
+                  {/* League name */}
+                  <h3 className="font-orbitron text-sm font-800 tracking-wide text-white uppercase leading-tight line-clamp-1 mb-1">
+                    {league.name}
+                  </h3>
+                  <p className="font-rajdhani text-xs tracking-wider text-[#5a7a9a] mb-4 flex items-center gap-1.5">
+                    {m.team_name ?? 'No team name'}
+                    {isCommissioner && (
+                      <span className="inline-flex items-center gap-1 text-[#f59e0b] text-[9px] font-700 tracking-[0.15em] uppercase">
+                        <Crown className="w-2.5 h-2.5" />
+                        Commissioner
+                      </span>
+                    )}
+                  </p>
+
+                  {/* Points + arrow */}
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <p className="font-rajdhani text-[9px] tracking-[0.25em] uppercase text-[#5a7a9a] mb-1">
+                        Total Points
+                      </p>
+                      <p
+                        className="stat-number text-3xl leading-none"
+                        style={{ color: '#ff6b00' }}
+                      >
+                        {points.toFixed(1)}
+                      </p>
+                    </div>
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110"
+                      style={{
+                        background: 'rgba(255,107,0,0.1)',
+                        boxShadow: '0 0 0 1px rgba(255,107,0,0.2)',
+                      }}
+                    >
+                      <ChevronRight className="w-5 h-5 text-[#ff6b00] transition-transform duration-300 group-hover:translate-x-0.5" />
+                    </div>
+                  </div>
+
+                  {/* Bottom row */}
+                  <div className="flex items-center gap-4 mt-4 pt-4 border-t border-[#0e2040]/80">
+                    <div className="flex items-center gap-1.5 font-rajdhani text-[10px] tracking-[0.15em] uppercase text-[#5a7a9a]">
+                      <Trophy className="w-3 h-3" />
+                      League
+                    </div>
+                    {league.status === 'live' && (
+                      <div className="flex items-center gap-1.5 font-rajdhani text-[10px] tracking-[0.15em] uppercase text-[#22c55e]">
+                        <Zap className="w-3 h-3" />
+                        Select Team
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </StaggerItem>
             )
           })}
-        </div>
+        </StaggerList>
       )}
     </div>
   )

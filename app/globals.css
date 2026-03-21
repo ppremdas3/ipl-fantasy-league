@@ -8,7 +8,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -47,9 +47,9 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ── IPL Fantasy — Futuristic Dark Theme ── */
+/* ── IPL Fantasy — Gaming Dashboard Theme ── */
 :root {
-  --background: #060d1f;
+  --background: #070b14;
   --foreground: #e8f0ff;
   --card: #0a1628;
   --card-foreground: #e8f0ff;
@@ -82,9 +82,12 @@
   --chart-4: #22c55e;
   --chart-5: #f59e0b;
 
-  /* font variables — populated by Next.js font loader */
-  --font-orbitron: 'Orbitron', sans-serif;
-  --font-rajdhani: 'Rajdhani', sans-serif;
+  /* rank colors */
+  --rank-gold:   #F59E0B;
+  --rank-silver: #94A3B8;
+  --rank-bronze: #CD7F32;
+
+  /* --font-orbitron and --font-rajdhani are injected by Next.js font loader onto <html> */
 }
 
 @layer base {
@@ -99,26 +102,294 @@
 
     /* Stadium spotlights background */
     background-image:
-      radial-gradient(ellipse 90% 40% at 50% -5%,  rgba(0, 212, 255, 0.07) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 15% 100%, rgba(255, 107, 0, 0.05) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 85% 100%, rgba(0, 212, 255, 0.05) 0%, transparent 60%);
+      radial-gradient(ellipse 90% 40% at 50% -5%,  rgba(0, 212, 255, 0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 15% 100%, rgba(255, 107, 0, 0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 85% 100%, rgba(0, 212, 255, 0.06) 0%, transparent 60%);
     background-attachment: fixed;
   }
 
-  /* Headings use Orbitron */
+  /* Subtle grid texture overlay (gaming HUD grid) */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(0, 212, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 212, 255, 0.025) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  /* Headings — Orbitron */
   h1, h2, h3 {
     font-family: var(--font-orbitron), sans-serif;
     letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  /* h4/h5/h6 — Inter semibold */
+  h4, h5, h6 {
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.01em;
   }
 
   html {
     @apply font-sans;
   }
+
+  /* Inputs use Inter */
+  input, textarea, select {
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
 }
 
-/* ── Font utilities ── */
-.font-orbitron { font-family: var(--font-orbitron), sans-serif; letter-spacing: 0.06em; }
-.font-rajdhani { font-family: var(--font-rajdhani), sans-serif; letter-spacing: 0.04em; }
+/* ════════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY SYSTEM
+   ────────────────────────────────────────────────────────────────────────────
+   3 fonts, clear hierarchy:
+     Press Start 2P → --font-orbitron  — Display / Hero (arcade pixel)
+     VT323          → --font-rajdhani  — Headings / Labels (retro terminal)
+     Inter         → --font-sans      — Body / UI (best screen-readable sans)
+     JetBrains Mono → --font-mono     — Numbers / Scores / Timers (tabular, broadcast)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Font family utilities ── */
+.font-orbitron { font-family: var(--font-orbitron), sans-serif; }  /* Press Start 2P */
+.font-rajdhani { font-family: var(--font-rajdhani), sans-serif; }  /* VT323 */
+.font-mono     { font-family: var(--font-mono), monospace; }       /* JetBrains Mono */
+.font-sans     { font-family: var(--font-sans), system-ui, sans-serif; } /* Inter */
+
+/* ────────────────────────────────────────────────────────────────────────────
+   DISPLAY / HERO — Bebas Neue
+   All-caps condensed. No font-weight needed (only 400 exists — it IS bold).
+   Use wide letter-spacing at display sizes, tight at smaller sizes.
+   Use: page titles, league names, match numbers, hero text
+   ────────────────────────────────────────────────────────────────────────── */
+.type-hero {
+  font-family: var(--font-orbitron), sans-serif;
+  font-size: clamp(2.5rem, 6vw, 4.5rem); /* 40–72px */
+  font-weight: 400;                        /* Bebas is inherently bold at 400 */
+  line-height: 0.95;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.type-display {
+  font-family: var(--font-orbitron), sans-serif;
+  font-size: clamp(1.75rem, 4vw, 2.75rem); /* 28–44px */
+  font-weight: 400;
+  line-height: 1.0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.type-heading {
+  font-family: var(--font-orbitron), sans-serif;
+  font-size: 1.5rem;     /* 24px */
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.type-subheading {
+  font-family: var(--font-orbitron), sans-serif;
+  font-size: 1.125rem;   /* 18px */
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   HEADINGS / LABELS — Sora
+   Geometric sans, full weight range (400–800). Use for mid-level headings,
+   section labels, badges, nav — anywhere Bebas would be too heavy.
+   ────────────────────────────────────────────────────────────────────────── */
+.type-label {
+  font-family: var(--font-rajdhani), sans-serif; /* Sora */
+  font-size: 0.6875rem;  /* 11px */
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.type-label-md {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.75rem;    /* 12px */
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.type-label-lg {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.875rem;   /* 14px */
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.type-nav {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 0.75rem;    /* 12px */
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   BODY / UI — Inter
+   Use: descriptions, paragraphs, card body, input values, metadata
+   ────────────────────────────────────────────────────────────────────────── */
+.type-body-lg {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 1rem;       /* 16px */
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+.type-body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 0.875rem;   /* 14px */
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+.type-body-sm {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 0.8125rem;  /* 13px */
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+.type-caption {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 0.75rem;    /* 12px */
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--muted-foreground);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   NUMERICS — JetBrains Mono
+   Always tabular-nums. Digits never shift width. Live-broadcast feel.
+   ────────────────────────────────────────────────────────────────────────── */
+.type-numeric {
+  font-family: var(--font-mono), monospace;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.type-score-sm {
+  font-family: var(--font-mono), monospace;
+  font-size: 1.25rem;    /* 20px */
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.type-score {
+  font-family: var(--font-mono), monospace;
+  font-size: 1.875rem;   /* 30px */
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.type-score-lg {
+  font-family: var(--font-mono), monospace;
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.type-timer {
+  font-family: var(--font-mono), monospace;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: 0.05em;
+}
+.type-rank {
+  font-family: var(--font-mono), monospace;
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.type-data {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* ── stat-number — backwards compat alias ── */
+.stat-number {
+  font-family: var(--font-mono), monospace;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   PLAYER CARD TYPOGRAPHY
+   Name: Bebas Neue (impact at tiny size)
+   Team: Sora (clean label)
+   Price: JetBrains Mono (numeric)
+   ────────────────────────────────────────────────────────────────────────── */
+.type-player-name {
+  font-family: var(--font-orbitron), sans-serif; /* Bebas Neue */
+  font-size: 0.75rem;    /* 12px — Bebas is condensed so reads well at 12 */
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+.type-player-team {
+  font-family: var(--font-rajdhani), sans-serif; /* Sora */
+  font-size: 0.625rem;   /* 10px */
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.type-player-price {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;  /* 11px */
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   NEON TEXT EFFECTS — display text only
+   ────────────────────────────────────────────────────────────────────────── */
+.text-neon-cyan {
+  background: linear-gradient(135deg, #00ffee, #00d4ff, #0099ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.5));
+}
+.text-neon-orange {
+  background: linear-gradient(135deg, #ffaa00, #ff6b00, #ff4400);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(255, 107, 0, 0.5));
+}
+.text-neon-gold {
+  background: linear-gradient(135deg, #ffe066, #f59e0b, #d97706);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5));
+}
 
 /* ── Glow helpers ── */
 .glow-orange  { box-shadow: 0 0 24px rgba(255, 107, 0, 0.45); }
@@ -143,17 +414,19 @@
   border: 1px solid rgba(0, 212, 255, 0.18);
   box-shadow:
     0 0 0 1px rgba(0, 212, 255, 0.06),
-    0 4px 20px rgba(0, 0, 0, 0.6),
+    0 4px 6px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(0, 212, 255, 0.06);
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  transform: perspective(700px) rotateX(1.5deg);
+  transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
 }
 .card-futuristic:hover {
   border-color: rgba(0, 212, 255, 0.45);
   box-shadow:
     0 0 20px rgba(0, 212, 255, 0.12),
-    0 8px 32px rgba(0, 0, 0, 0.7),
+    0 12px 36px rgba(0, 0, 0, 0.7),
     inset 0 1px 0 rgba(0, 212, 255, 0.1);
-  transform: translateY(-2px);
+  transform: perspective(700px) rotateX(0deg) translateY(-4px);
 }
 
 /* ── 3D card — perspective tilt ── */
@@ -186,17 +459,19 @@
   overflow: hidden;
   box-shadow:
     0 0 0 1px rgba(0, 212, 255, 0.04),
-    0 6px 20px rgba(0, 0, 0, 0.6),
+    0 4px 6px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  transform: perspective(500px) rotateX(2deg);
+  transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
   cursor: default;
 }
 .player-card:hover {
   border-color: rgba(0, 212, 255, 0.55);
   box-shadow:
     0 0 18px rgba(0, 212, 255, 0.18),
-    0 10px 32px rgba(0, 0, 0, 0.7);
-  transform: translateY(-3px) scale(1.02);
+    0 14px 36px rgba(0, 0, 0, 0.7);
+  transform: perspective(500px) rotateX(0deg) translateY(-4px) scale(1.02);
 }
 .player-card-captain {
   border-color: rgba(255, 107, 0, 0.55) !important;
@@ -234,6 +509,207 @@
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: #060d1f; }
+::-webkit-scrollbar-track { background: #070b14; }
 ::-webkit-scrollbar-thumb { background: #0e2040; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #00d4ff; }
+
+/* ── Standalone 3D tilt utility ── */
+.card-tilt {
+  transform: perspective(700px) rotateX(1.5deg);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.card-tilt:hover {
+  transform: perspective(700px) rotateX(0deg) translateY(-4px);
+}
+
+/* ── HUD card — corner bracket decoration ── */
+.card-hud {
+  position: relative;
+  background: rgba(8, 14, 28, 0.9);
+  border: 1px solid rgba(0, 212, 255, 0.14);
+  box-shadow:
+    0 0 0 1px rgba(0, 212, 255, 0.04),
+    0 4px 6px rgba(0, 0, 0, 0.4),
+    0 8px 32px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(0, 212, 255, 0.06);
+  backdrop-filter: blur(12px);
+  transform: perspective(700px) rotateX(1.5deg);
+  transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
+}
+.card-hud:hover {
+  border-color: rgba(0, 212, 255, 0.35);
+  box-shadow:
+    0 0 24px rgba(0, 212, 255, 0.1),
+    0 12px 40px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(0, 212, 255, 0.08);
+  transform: perspective(700px) rotateX(0deg) translateY(-4px);
+}
+.card-hud::before,
+.card-hud::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: #00d4ff;
+  border-style: solid;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.card-hud::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.card-hud::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+.card-hud:hover::before,
+.card-hud:hover::after { opacity: 1; }
+
+/* ── Angular clip-path section headers ── */
+.clip-angle-br {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%);
+}
+.clip-angle-bl {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+.clip-diamond {
+  clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+}
+
+/* ── Animated neon border for LIVE elements ── */
+@keyframes neonPulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(34, 197, 94, 0.5), inset 0 0 6px rgba(34, 197, 94, 0.05); }
+  50%       { box-shadow: 0 0 20px rgba(34, 197, 94, 0.8), inset 0 0 14px rgba(34, 197, 94, 0.1); }
+}
+.border-live {
+  animation: neonPulse 2s ease-in-out infinite;
+  border-color: rgba(34, 197, 94, 0.6) !important;
+}
+
+/* ── Orange live badge pulse ── */
+@keyframes orangePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 0, 0.4); }
+  50%       { box-shadow: 0 0 0 6px rgba(255, 107, 0, 0); }
+}
+.badge-live-pulse {
+  animation: orangePulse 2s ease-in-out infinite;
+}
+
+/* ── Stat display (large number with glow) ── */
+.stat-number {
+  font-family: var(--font-orbitron), sans-serif;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ── Section divider with label ── */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-rajdhani), sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(0, 212, 255, 0.5);
+}
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(0, 212, 255, 0.3) 0%, transparent 100%);
+}
+
+/* ── Rank indicators ── */
+.rank-gold   { color: var(--rank-gold); }
+.rank-silver { color: var(--rank-silver); }
+.rank-bronze { color: var(--rank-bronze); }
+
+/* ── Glassmorphism (auth pages, modals) ── */
+.glass-panel {
+  background: rgba(8, 14, 30, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  box-shadow:
+    0 0 0 1px rgba(0, 212, 255, 0.06),
+    0 4px 8px rgba(0, 0, 0, 0.5),
+    0 24px 64px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transform: perspective(900px) rotateX(1deg);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.glass-panel:hover {
+  transform: perspective(900px) rotateX(0deg) translateY(-3px);
+  box-shadow:
+    0 0 0 1px rgba(0, 212, 255, 0.1),
+    0 8px 16px rgba(0, 0, 0, 0.5),
+    0 32px 80px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* ── Neon text gradient ── */
+.text-neon-cyan {
+  background: linear-gradient(135deg, #00ffee, #00d4ff, #0099ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.5));
+}
+.text-neon-orange {
+  background: linear-gradient(135deg, #ffaa00, #ff6b00, #ff4400);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(255, 107, 0, 0.5));
+}
+
+/* ── Left accent bar (rank rows) ── */
+.rank-row-accent {
+  position: relative;
+  padding-left: 16px;
+}
+.rank-row-accent::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, rgba(0, 212, 255, 0.6), rgba(0, 212, 255, 0.1));
+}
+
+/* ── Podium cards (leaderboard top 3) ── */
+.podium-1 {
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.2), 0 4px 6px rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.7) !important;
+  transform: perspective(600px) rotateX(1.5deg);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.podium-1:hover {
+  transform: perspective(600px) rotateX(0deg) translateY(-4px) !important;
+}
+.podium-2 {
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  box-shadow: 0 0 20px rgba(148, 163, 184, 0.15), 0 4px 6px rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.7) !important;
+  transform: perspective(600px) rotateX(1.5deg);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.podium-2:hover {
+  transform: perspective(600px) rotateX(0deg) translateY(-4px) !important;
+}
+.podium-3 {
+  border-color: rgba(205, 127, 50, 0.4) !important;
+  box-shadow: 0 0 20px rgba(205, 127, 50, 0.15), 0 4px 6px rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.7) !important;
+  transform: perspective(600px) rotateX(1.5deg);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.podium-3:hover {
+  transform: perspective(600px) rotateX(0deg) translateY(-4px) !important;
+}
+
+@keyframes nameDotBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.name-dot-blink {
+  animation: nameDotBlink 1s step-start infinite;
+}
